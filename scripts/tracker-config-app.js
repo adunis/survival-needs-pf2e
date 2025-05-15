@@ -15,7 +15,7 @@ export class TrackerConfigApp extends FormApplication {
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
             id: `${MODULE_ID}-tracker-config-app`,
-            classes: ["pf2e-survival-needs", "tracker-config-sheet", "sheet"], // Added "sheet" for more generic styling
+            classes: ["survival-needs-pf2e", "tracker-config-sheet", "sheet"], // Added "sheet" for more generic styling
             title: game.i18n.localize(`${MODULE_ID}.settings.trackerConfigMenu.name`), // "Configure Survival Trackers"
             template: `modules/${MODULE_ID}/templates/tracker-config-app.hbs`,
             width: 800, // Wider for more complex nested forms

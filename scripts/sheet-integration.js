@@ -36,7 +36,7 @@ export class SheetIntegration {
         const templateTrackers = enabledTrackers.map(tracker => ({
             ...tracker, // Spread all properties from the tracker config
             currentValue: currentNeeds[tracker.id] ?? tracker.defaultValue ?? 0,
-            flagPath: `${FLAG_PREFIX}.${tracker.id}` // e.g., flags.pf2e-survival-needs.hunger
+            flagPath: `${FLAG_PREFIX}.${tracker.id}` // e.g., flags.survival-needs-pf2e.hunger
         }));
 
         const templateData = {

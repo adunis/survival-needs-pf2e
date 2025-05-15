@@ -1,11 +1,11 @@
 {
-  "id": "pf2e-survival-needs",
-  "title": "PF2e Survival Needs",
+  "id": "survival-needs-pf2e",
+  "title": "Survival Needs PF2e ",
   "description": "Adds configurable Hunger, Thirst, Sleep, and other custom survival trackers to character sheets, integrated with game time and conditions.",
   "version": "1.3.0",
   "compatibility": {
-    "minimum": "11",  
-    "verified": "11.315" 
+    "minimum": "12",  
+    "verified": "13" 
   },
   "relationships": {
     "systems": [
@@ -35,15 +35,15 @@
     {
       "lang": "en",
       "name": "English",
-      "path": "lang/en.json"
+      "path": "languages/en.json"
     }
   ],
-  "url": "https://github.com/adunis/pf2e-survival-needs", 
-  "manifest": "https://github.com/adunis/pf2e-survival-needs/releases/latest/download/module.json", 
-  "download": "https://github.com/adunis/pf2e-survival-needs/releases/download/1.3.0/module.zip",
+  "url": "https://github.com/adunis/survival-needs-pf2e", 
+  "manifest": "https://github.com/adunis/survival-needs-pf2e/releases/latest/download/module.json", 
+  "download": "https://github.com/adunis/survival-needs-pf2e/releases/download/1.3.0/module.zip",
   "license": "LICENSE.txt", 
   "readme": "README.md",   
-  "bugs": "https://github.com/adunis/pf2e-survival-needs/issues", 
+  "bugs": "https://github.com/adunis/survival-needs-pf2e/issues", 
   "changelog": "CHANGELOG.md", 
   "media": [ 
     {

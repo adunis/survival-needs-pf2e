@@ -1,0 +1,360 @@
+/* === PF2E SURVIVAL NEEDS - MAIN STYLES === */
+
+/* --- Character Sheet Display (.survival-needs-display) --- */
+.survival-needs-display {
+    border: 1px solid var(--color-border-light-tertiary);
+    padding: 8px;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.03);
+    font-family: var(--font-primary);
+}
+
+.survival-needs-display h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: var(--font-size-16);
+    font-weight: 700;
+    border-bottom: 1px solid var(--color-border-light-secondary);
+    padding-bottom: 4px;
+    color: var(--color-text-dark-primary);
+    line-height: normal;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.survival-needs-display .need-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: var(--font-size-14);
+}
+
+.survival-needs-display .need-item:last-child {
+    margin-bottom: 0;
+}
+
+.survival-needs-display .need-item label {
+    flex-basis: 110px; /* Adjusted for icon + "Sleep Dep." */
+    flex-shrink: 0;
+    font-weight: bold;
+    color: var(--color-text-dark-secondary);
+    margin-right: 5px;
+    display: flex;
+    align-items: center;
+}
+
+.survival-needs-display .need-item label i {
+    margin-right: 6px;
+    font-size: 1.1em;
+    width: 18px;
+    text-align: center;
+}
+
+/* Specific Icon Colors (can be overridden by inline style from config) */
+.survival-needs-display .need-item.hunger label i { color: green; }
+.survival-needs-display .need-item.thirst label i { color: #DAA520; } /* Goldenrod */
+.survival-needs-display .need-item.sleep label i { color: dodgerblue; }
+
+
+.survival-needs-display .need-item .need-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px; /* Gap between input, slash, max, button */
+}
+
+.survival-needs-display .need-item input[type="number"] {
+    width: 40px;
+    text-align: center;
+    border: 1px solid var(--color-border-light-tertiary);
+    border-radius: 3px;
+    background-color: var(--color-bg-input);
+    color: var(--color-text-dark-input);
+    height: 24px;
+    padding: 2px 4px;
+    font-size: var(--font-size-14);
+    /* margin-right: 4px; Handled by gap in .need-controls */
+}
+.survival-needs-display .need-item input[type="number"]:focus {
+    border-color: var(--color-border-highlight);
+    box-shadow: 0 0 0 1px var(--color-border-highlight);
+}
+
+.survival-needs-display .need-item .need-controls span { /* For the "/ MAX" part */
+    flex-shrink: 0;
+    text-align: left;
+    color: var(--color-text-dark-faint);
+}
+
+.survival-needs-display .need-item .need-controls button.consume-button {
+    width: 26px; /* Slightly wider for better click target */
+    height: 24px;
+    padding: 0;
+    font-size: 12px;
+    line-height: 22px; 
+    min-width: unset;
+    border: 1px solid var(--color-border-light-tertiary);
+    background: var(--color-background-button);
+    color: var(--color-text-button);
+    border-radius: 3px;
+}
+.survival-needs-display .need-item .need-controls button.consume-button:hover {
+    border-color: var(--color-border-highlight);
+    box-shadow: 0 0 3px var(--color-border-highlight);
+}
+
+
+/* --- Tracker Configuration App Styles (.tracker-config-sheet) --- */
+.tracker-config-sheet .window-content {
+    background: var(--color-background-body);
+    padding: 10px;
+    display: flex; 
+    flex-direction: column;
+    height: 100%; /* Fill the FormApplication's content area */
+    box-sizing: border-box;
+}
+
+.tracker-config-sheet form.tracker-config-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-grow: 1; 
+    overflow: hidden; /* Children will handle scrolling */
+    box-sizing: border-box;
+}
+
+.tracker-config-sheet .notes.app-hint {
+    padding: 8px;
+    background-color: rgba(0,0,0,0.05);
+    border: 1px solid var(--color-border-light-secondary);
+    border-radius: 3px;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: var(--color-text-dark-secondary);
+    flex-shrink: 0;
+}
+
+.tracker-config-sheet .trackers-list-container { 
+    border: 1px solid var(--color-border-light-tertiary);
+    padding: 10px;
+    border-radius: 3px;
+    flex-grow: 1; 
+    overflow-y: auto; 
+    display: flex; 
+    flex-direction: column;
+    gap: 15px;
+    background: rgba(0,0,0,0.01); /* Very subtle background for the list */
+}
+
+.tracker-config-sheet .tracker-entry {
+    border: 1px solid var(--color-border-light-divider);
+    padding: 15px;
+    border-radius: 5px;
+    background: var(--color-background-sidebar); /* Match sidebar panels */
+    display: flex;
+    flex-direction: column;
+    gap: 12px; 
+}
+
+.tracker-config-sheet .tracker-entry header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--color-border-light-divider);
+    margin-bottom: 5px; /* Space after header before first fieldset/group */
+}
+.tracker-config-sheet .tracker-entry header h3 {
+    margin: 0;
+    font-size: 1.25em;
+    color: var(--color-text-dark-highlight);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tracker-config-sheet .tracker-entry header h3 .tracker-id-display {
+    font-size: 0.8em;
+    font-weight: normal;
+    color: var(--color-text-dark-faint);
+}
+.tracker-config-sheet .tracker-entry header .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tracker-config-sheet fieldset {
+    border: 1px solid var(--color-border-form-field);
+    padding: 10px 12px 12px 12px; /* More bottom padding */
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Increased gap */
+}
+.tracker-config-sheet fieldset legend {
+    font-weight: bold;
+    padding: 0 8px;
+    font-size: 1.1em; /* Slightly larger legend */
+    color: var(--color-text-dark-primary);
+    margin-bottom: 5px; /* Space below legend */
+}
+.tracker-config-sheet fieldset legend a.clickable {
+    margin-left: 8px;
+    color: var(--color-text-hyperlink);
+    font-size: 0.9em;
+}
+
+.tracker-config-sheet .form-section { /* Wrapper for top-level groups like Name/ID */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tracker-config-sheet .form-group {
+    display: grid;
+    grid-template-columns: minmax(140px, auto) 1fr; /* Adjusted label width */
+    align-items: center; /* Vertically align label and input */
+    gap: 5px 10px; /* row-gap column-gap */
+}
+.tracker-config-sheet .form-group label:not(.checkbox) { /* Don't apply to checkbox wrapper labels */
+    font-weight: bold;
+    grid-column: 1 / 2;
+    text-align: right;
+    padding-right: 8px;
+    color: var(--color-text-dark-secondary);
+}
+.tracker-config-sheet .form-group input[type="text"],
+.tracker-config-sheet .form-group input[type="number"],
+.tracker-config-sheet .form-group select {
+    grid-column: 2 / 3;
+    width: 100%;
+    box-sizing: border-box;
+    height: 28px; /* Consistent input height */
+    padding: 0 5px;
+}
+.tracker-config-sheet .form-group input[type="number"].short-input {
+    width: 80px; /* Specific width for short number inputs */
+    flex-grow: 0;
+    grid-column: 2 / 3; /* Ensure it stays in its column */
+}
+
+
+.tracker-config-sheet .grid {
+    display: grid;
+    gap: 8px 12px;
+}
+.tracker-config-sheet .grid-3col {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Responsive 3-col */
+}
+.tracker-config-sheet .grid .form-group { /* Form groups within a grid */
+    grid-template-columns: auto; /* Label on top of input */
+    gap: 3px; /* Smaller gap for label-on-top */
+}
+.tracker-config-sheet .grid .form-group label:not(.checkbox) {
+    grid-column: auto;
+    text-align: left;
+    padding-right: 0;
+    margin-bottom: 2px;
+}
+.tracker-config-sheet .grid .form-group input,
+.tracker-config-sheet .grid .form-group select {
+    grid-column: auto;
+}
+
+
+.tracker-config-sheet .checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: normal;
+    grid-column: 2 / 3; /* Default for non-grid parent form-group */
+    justify-self: start; /* Align checkbox to the start of its grid cell */
+    padding: 3px 0; /* Add some vertical padding */
+}
+.tracker-config-sheet .grid .form-group .checkbox { /* Checkbox inside a grid cell */
+    grid-column: auto;
+}
+.tracker-config-sheet .checkbox.full-width-label { /* For checkboxes that take the whole line */
+    grid-column: 1 / 3;
+    justify-self: start;
+}
+
+.tracker-config-sheet .checkbox input[type="checkbox"] {
+    margin: 0;
+    height: auto;
+    width: auto; /* Let browser size it */
+    flex-shrink: 0;
+}
+
+.tracker-config-sheet .conditions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    border: 1px dashed var(--color-border-light-divider);
+    border-radius: 3px;
+    background-color: rgba(0,0,0,0.01);
+    max-height: 250px; /* Allow scrolling for many conditions */
+    overflow-y: auto;
+}
+.tracker-config-sheet .condition-entry {
+    padding: 12px;
+    border: 1px solid var(--color-border-light-outline);
+    border-radius: 3px;
+    background: var(--color-background-body); /* Slightly different from list bg */
+    display: grid; /* Grid for condition fields */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Responsive columns */
+    gap: 8px 10px;
+    align-items: center;
+}
+/* Adjust condition-entry specific form-groups if needed, or use .form-group-inline */
+.tracker-config-sheet .condition-entry .form-group {
+    grid-template-columns: auto 1fr; /* Label then input */
+}
+.tracker-config-sheet .condition-entry .form-group label:not(.checkbox){
+    text-align: left;
+    padding-right: 5px;
+    flex-basis: auto; /* Override general form-group label basis */
+}
+.tracker-config-sheet .condition-entry .form-group.condition-controls {
+    grid-column: span 2; /* Make remove button span if needed, or adjust columns */
+    justify-self: end; /* Push remove to the right */
+    margin-top: 5px;
+}
+
+
+.tracker-config-sheet a.clickable {
+    color: var(--color-text-hyperlink);
+    cursor: pointer;
+    text-decoration: none;
+    padding: 2px 4px;
+}
+.tracker-config-sheet a.clickable:hover {
+    text-shadow: 0 0 3px var(--color-shadow-primary);
+    background-color: rgba(0,0,0,0.05);
+    border-radius: 2px;
+}
+.tracker-config-sheet .remove-tracker i,
+.tracker-config-sheet .remove-condition i,
+.tracker-config-sheet .add-condition i {
+    font-size: 1.1em;
+}
+
+.tracker-config-sheet .sheet-footer {
+    margin-top: auto; 
+    padding-top: 15px; /* More space above footer */
+    border-top: 1px solid var(--color-border-light-divider);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.tracker-config-sheet .sheet-footer button {
+    padding: 8px 15px; /* Nicer buttons */
+}
+
+.tracker-config-sheet .text-center {
+    text-align: center;
+}

@@ -1,6 +1,6 @@
 // In scripts/constants.js
 
-export const MODULE_ID = "pf2e-survival-needs";
+export const MODULE_ID = "survival-needs-pf2e";
 
 // --- SETTING KEYS ---
 export const SETTINGS = {
@@ -14,11 +14,11 @@ export const SETTINGS = {
 
 // --- FLAGS ---
 // Flags for individual tracker values will be dynamically constructed using:
-// `${FLAG_PREFIX}.${tracker.id}` e.g., "flags.pf2e-survival-needs.hunger"
+// `${FLAG_PREFIX}.${tracker.id}` e.g., "flags.survival-needs-pf2e.hunger"
 export const FLAG_PREFIX = `flags.${MODULE_ID}`;
 
 // Flag for the last time an actor's needs were processed by the interval update
-// Stored as: "flags.pf2e-survival-needs.lastUpdateTime"
+// Stored as: "flags.survival-needs-pf2e.lastUpdateTime"
 export const LAST_UPDATE_TIME_FLAG_KEY = "lastUpdateTime"; // The key part after the module ID
 
 // Flags used on Condition items applied by this module
