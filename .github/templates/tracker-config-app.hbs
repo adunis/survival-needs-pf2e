@@ -1,0 +1,164 @@
+<form autocomplete="off" class="tracker-config-form">
+    <p class="notes app-hint">
+        Configure your survival trackers. IDs should be unique and are used internally (default tracker IDs: hunger, thirst, sleep cannot be changed).
+        Changes require saving. Remember to refresh character sheets or reload the world if UI elements don't update immediately after saving.
+    </p>
+    
+    <div class="trackers-list-container">
+        {{#if trackerConfigs.length}}
+            {{#each trackerConfigs as |tracker trackerIndex|}}
+            <div class="tracker-entry" data-tracker-id="{{tracker.id}}">
+                <header class="flexrow">
+                    <h3>
+                        <i class="{{tracker.iconClass}}" style="color: {{tracker.iconColor}};"></i> 
+                        {{tracker.name}} (<span class="tracker-id-display">ID: {{tracker.id}}</span>)
+                    </h3>
+                    <div class="controls flexrow">
+                        <label class="checkbox" title="Enable/Disable Tracker">
+                            <input type="checkbox" name="trackerConfigs.{{trackerIndex}}.enabled" {{checked tracker.enabled}} /> Enable
+                        </label>
+                        {{#unless (or (eq tracker.id "hunger") (eq tracker.id "thirst") (eq tracker.id "sleep"))}}
+                            <a class="remove-tracker clickable" title="Remove Tracker"><i class="fas fa-trash"></i></a>
+                        {{/unless}}
+                    </div>
+                </header>
+
+                <div class="form-section">
+                    <div class="form-group">
+                        <label>Display Name:</label>
+                        <input type="text" name="trackerConfigs.{{trackerIndex}}.name" value="{{tracker.name}}" placeholder="e.g., Hunger, Divine Favor" />
+                    </div>
+                    <div class="form-group">
+                        <label>Internal ID:</label>
+                        {{#if (or (eq tracker.id "hunger") (eq tracker.id "thirst") (eq tracker.id "sleep"))}}
+                            <input type="text" name="trackerConfigs.{{trackerIndex}}.id" value="{{tracker.id}}" readonly title="ID of default trackers cannot be changed." />
+                        {{else}}
+                            <input type="text" name="trackerConfigs.{{trackerIndex}}.id" value="{{tracker.id}}" pattern="[a-zA-Z0-9\-_]+" title="Alphanumeric, hyphen, underscore only. No spaces. Cannot be changed after creation through this UI easily." />
+                        {{/if}}
+                    </div>
+                </div>
+
+                <fieldset>
+                    <legend>Display & Values</legend>
+                    <div class="grid grid-3col">
+                        <div class="form-group">
+                            <label>Icon Class:</label>
+                            <input type="text" name="trackerConfigs.{{trackerIndex}}.iconClass" value="{{tracker.iconClass}}" placeholder="fas fa-example" />
+                        </div>
+                        <div class="form-group">
+                            <label>Icon Color:</label>
+                            <input type="text" name="trackerConfigs.{{trackerIndex}}.iconColor" value="{{tracker.iconColor}}" placeholder="green or #00FF00" />
+                            {{!-- You could use <input type="color"> but its styling is browser-dependent --}}
+                        </div>
+                         <div class="form-group">
+                            <label> </label> {{!-- Spacer for grid --}}
+                        </div>
+                        <div class="form-group">
+                            <label>Default Value:</label>
+                            <input type="number" name="trackerConfigs.{{trackerIndex}}.defaultValue" value="{{tracker.defaultValue}}" />
+                        </div>
+                        <div class="form-group">
+                            <label>Max Value:</label>
+                            <input type="number" name="trackerConfigs.{{trackerIndex}}.maxValue" value="{{tracker.maxValue}}" />
+                        </div>
+                        <div class="form-group">
+                            <label>Increase/Interval:</label>
+                            <input type="number" name="trackerConfigs.{{trackerIndex}}.increasePerInterval" value="{{tracker.increasePerInterval}}" title="Amount this tracker increases per global update interval. Use negative for beneficial trackers that decay."/>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="conditions-section">
+                    <legend>Conditions Triggered <a class="add-condition clickable" title="Add Condition Rule"><i class="fas fa-plus-circle"></i></a></legend>
+                    <div class="conditions-list">
+                        {{#each tracker.conditions as |condition condIndex|}}
+                        <div class="condition-entry" data-condition-index="{{condIndex}}">
+                            <div class="form-group">
+                                <label>Threshold ≥</label>
+                                <input type="number" name="trackerConfigs.{{../trackerIndex}}.conditions.{{condIndex}}.threshold" value="{{condition.threshold}}" class="short-input"/>
+                            </div>
+                            <div class="form-group">
+                                <label>Apply Condition:</label>
+                                <select name="trackerConfigs.{{../trackerIndex}}.conditions.{{condIndex}}.slug">
+                                    {{#each @root.availableConditionSlugs}}
+                                    <option value="{{this}}" {{#if (eq this ../condition.slug)}}selected{{/if}}>{{#if this}}{{this}}{{else}}-- Select --{{/if}}</option>
+                                    {{/each}}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Value:</label>
+                                <input type="number" name="trackerConfigs.{{../trackerIndex}}.conditions.{{condIndex}}.value" value="{{condition.value}}" class="short-input" title="0 or empty for non-valued conditions"/>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox" title="Mark as critical. Priority: Critical > Higher Value > Higher Threshold.">
+                                    <input type="checkbox" name="trackerConfigs.{{../trackerIndex}}.conditions.{{condIndex}}.critical" {{checked condition.critical}} /> Critical
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>GM Note:</label>
+                                <input type="text" name="trackerConfigs.{{../trackerIndex}}.conditions.{{condIndex}}.note" value="{{condition.note}}" placeholder="e.g., Starving, Blessed"/>
+                            </div>
+                            <div class="form-group condition-controls">
+                                <a class="remove-condition clickable" title="Remove This Condition Rule"><i class="fas fa-minus-circle"></i></a>
+                            </div>
+                        </div>
+                        {{else}}
+                        <p class="notes text-center">No conditions defined for this tracker.</p>
+                        {{/each}}
+                    </div>
+                </fieldset>
+
+                <fieldset class="regeneration-section">
+                    <legend>Regeneration / Reduction</legend>
+                    <div class="form-group">
+                        <label class="checkbox full-width-label">
+                            <input type="checkbox" name="trackerConfigs.{{trackerIndex}}.regeneration.byLongRest" {{checked tracker.regeneration.byLongRest}} /> 
+                            Can be affected by Long Rest?
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Long Rest Amount:</label>
+                        <input type="number" name="trackerConfigs.{{trackerIndex}}.regeneration.longRestAmount" value="{{tracker.regeneration.longRestAmount}}" class="short-input" title="Positive to reduce bad trackers, negative to reduce good ones (e.g. reset divine favor)"/>
+                    </div>
+                    <hr>
+                    <div class="form-group">
+                        <label class="checkbox full-width-label">
+                            <input type="checkbox" name="trackerConfigs.{{trackerIndex}}.regeneration.byItem" {{checked tracker.regeneration.byItem}} /> 
+                            Can be affected by Item Use? (adds button to sheet)
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Item Types (comma-sep):</label>
+                        <input type="text" name="trackerConfigs.{{trackerIndex}}.regeneration.itemFilter.types" value="{{join tracker.regeneration.itemFilter.types ','}}" placeholder="consumable,equipment"/>
+                    </div>
+                    <div class="form-group">
+                        <label>Item Name Keywords (comma-sep):</label>
+                        <input type="text" name="trackerConfigs.{{trackerIndex}}.regeneration.itemFilter.nameKeywords" value="{{join tracker.regeneration.itemFilter.nameKeywords ','}}" placeholder="food,ration,drink"/>
+                    </div>
+                    <div class="form-group">
+                        <label>Item Restore Amount:</label>
+                        <input type="number" name="trackerConfigs.{{trackerIndex}}.regeneration.itemRestoreAmount" value="{{tracker.regeneration.itemRestoreAmount}}" class="short-input" title="Positive to reduce bad trackers, positive to increase good ones"/>
+                    </div>
+                    <div class="form-group">
+                        <label>Button Label:</label>
+                        <input type="text" name="trackerConfigs.{{trackerIndex}}.regeneration.itemButtonLabel" value="{{tracker.regeneration.itemButtonLabel}}" placeholder="e.g., Eat, Drink, Pray"/>
+                    </div>
+                    <div class="form-group">
+                        <label>Button Icon:</label>
+                        <input type="text" name="trackerConfigs.{{trackerIndex}}.regeneration.itemButtonIcon" value="{{tracker.regeneration.itemButtonIcon}}" placeholder="fas fa-utensils"/>
+                    </div>
+                </fieldset>
+            </div> {{!-- End .tracker-entry --}}
+            {{/each}}
+        {{else}}
+            <p class="notes text-center">No trackers are currently configured. Click "Add New Tracker" to begin.</p>
+        {{/if}}
+    </div> {{!-- End .trackers-list-container --}}
+
+    <footer class="sheet-footer flexrow">
+        <button type="button" class="add-tracker"><i class="fas fa-plus"></i> Add New Tracker</button>
+        <button type="submit" name="submit">
+            <i class="far fa-save"></i> Save All Configurations
+        </button>
+    </footer>
+</form>

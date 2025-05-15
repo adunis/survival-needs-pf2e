@@ -1,3 +1,21 @@
 {
-    "MODULE.hello": "hello"
+    "pf2e-survival-needs.settings.updateIntervalHours.name": "Update Interval (Game Hours)",
+    "pf2e-survival-needs.settings.updateIntervalHours.hint": "Needs will increase for all enabled trackers after this many game hours have passed. Default: 4 hours.",
+    "pf2e-survival-needs.settings.affectsNPCs.name": "Track Needs for NPCs",
+    "pf2e-survival-needs.settings.affectsNPCs.hint": "If checked, non-player characters (type 'npc') will also have their needs tracked. Default: false.",
+    "pf2e-survival-needs.settings.trackerConfigMenu.name": "Configure Survival Trackers",
+    "pf2e-survival-needs.settings.trackerConfigMenu.label": "Open Tracker Editor",
+    "pf2e-survival-needs.settings.trackerConfigMenu.hint": "Open a UI to add, remove, and edit survival trackers and their associated effects.",
+
+    "pf2e-survival-needs.sheet.title": "Survival Needs",
+    "pf2e-survival-needs.sheet.currentLabel": "Current",
+    "pf2e-survival-needs.sheet.noTrackersEnabled": "No survival trackers are currently enabled.",
+
+    "pf2e-survival-needs.notifications.rested": "{actorName} feels more rested.",
+    "pf2e-survival-needs.notifications.noSuitableItem": "{actorName} has no suitable items to affect {trackerName}.",
+    "pf2e-survival-needs.notifications.itemNotFound": "Selected item not found.",
+
+    "pf2e-survival-needs.dialogs.consumeItem.prompt": "Select an item to use for {trackerName}:",
+    "pf2e-survival-needs.dialogs.consumeItem.title": "Use Item for {trackerName}",
+    "pf2e-survival-needs.dialogs.consumeItem.consumeButton": "Consume"
 }

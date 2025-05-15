@@ -1,0 +1,35 @@
+<!-- templates/needs-display.hbs -->
+<div class="survival-needs-display {{moduleId}}"> {{!-- Added moduleId class for specific targeting --}}
+    <h4>{{localize (concat moduleId ".sheet.title")}}</h4> {{!-- Survival Needs --}}
+
+    {{#if trackers.length}}
+        {{#each trackers as |tracker|}}
+        <div class="need-item {{tracker.id}}" data-tracker-id="{{tracker.id}}">
+            <label for="actor-{{tracker.id}}-{{../actorId}}" style="color: {{tracker.iconColor}};">
+                <i class="{{tracker.iconClass}}" title="{{tracker.name}}" style="color: {{tracker.iconColor}};"></i>
+                {{tracker.name}}:
+            </label>
+            <div class="need-controls">
+                <input type="number" 
+                       name="{{tracker.flagPath}}" 
+                       value="{{tracker.currentValue}}" 
+                       data-dtype="Number" 
+                       min="0" 
+                       max="{{tracker.maxValue}}" 
+                       title="{{localize (concat moduleId ".sheet.currentLabel")}} {{tracker.name}}"/>
+                <span>/ {{tracker.maxValue}}</span>
+                {{#if tracker.regeneration.byItem}}
+                <button type="button" 
+                        class="consume-button" 
+                        data-tracker-id="{{tracker.id}}" 
+                        title="{{tracker.regeneration.itemButtonLabel}}">
+                    <i class="{{tracker.regeneration.itemButtonIcon}}"></i>
+                </button>
+                {{/if}}
+            </div>
+        </div>
+        {{/each}}
+    {{else}}
+        <p class="notes">{{localize (concat moduleId ".sheet.noTrackersEnabled")}}</p>
+    {{/if}}
+</div>
