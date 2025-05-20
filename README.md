@@ -7,16 +7,14 @@
 
 This module introduces a suite of configurable trackers for common survival elements like hunger, thirst, and sleep deprivation, along with more nuanced needs such as bladder and bowel relief, boredom, stress, and even wetness. Each tracker can impose progressive negative conditions on characters as their needs become more severe, all managed through dynamically applied effects.
 
-![](https://your-image-url-here.com/module-banner.png) <!-- Optional: Replace with a cool banner image -->
-
 ## Features
 
 *   **Configurable Trackers:**
     *   **Hunger:** From peckish to starving, impacting physical capabilities.
     *   **Thirst:** From thirsty to dangerously dehydrated, affecting strength and vitality.
     *   **Sleep Deprivation:** Progresses from tired to exhausted, clouding the mind and slowing reactions.
-    *   **Bladder (Piss):** Fills as characters drink. High levels cause discomfort and clumsiness.
-    *   **Bowels (Poop):** Fills as characters eat. High levels lead to discomfort and sluggishness.
+    *   **Bladder:** Fills as characters drink. High levels cause discomfort and clumsiness.
+    *   **Bowels:** Fills as characters eat. High levels lead to discomfort and sluggishness.
     *   **Boredom:** Characters can become bored over time or from monotonous food, leading to mental fog.
     *   **Stress:** Can increase from various sources (dirty water, certain foods, game events). High stress impacts mental acuity and composure.
     *   **Wetness:** Manually tracked (e.g., after swimming or rain). Can lead to discomfort and penalties, especially if combined with cold.
@@ -107,20 +105,13 @@ Access module settings via `Game Settings -> Module Settings -> Survival Needs P
 
 ## Known Issues / Future Ideas
 
-*   Currently, the "time taken" for special actions is for flavor via chat message; it doesn't automatically advance game time.
+*   Currently, the "time taken" for special actions is for flavor via chat message; it doesn't automatically advance game time. Multiple players can do multiple actions in same time frame, advancing time automatically is always troublesome. 
 *   Detailed UI for configuring all aspects of trackers (thresholds, symptoms, icons, special actions, choices) via `TrackerConfigApp` is a future goal. Currently, advanced configuration requires direct JSON editing.
 *   More nuanced interactions between needs (e.g., being Wet in cold weather increasing Stress or affecting Thirst differently).
 *   Integration with weather systems.
 
 ## Credits
 
-*   **Author:** Your Name
-*   Inspired by various survival mechanics in TTRPGs.
+*   **Author:** Aleksandar Petrovic
 *   Utilizes the robust Pathfinder 2e system on Foundry VTT.
 
----
-
-This should be a good starting point for your README! Remember to:
-*   Replace placeholder image URLs and author names.
-*   Verify the accuracy of configuration paths and details as your module evolves.
-*   Expand on any particularly complex or noteworthy features.
