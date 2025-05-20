@@ -2,7 +2,16 @@
 
 **Bring a deeper level of immersion and challenge to your Pathfinder 2e games with granular survival needs!**
 
-![image](https://github.com/user-attachments/assets/f49085ef-3901-4630-a40b-899423f0b554) ![image](https://github.com/user-attachments/assets/514904c4-ad37-49af-bb93-0f5c4e1769de)
+<table>
+  <tr>
+    <td>
+      <img src="https://github.com/user-attachments/assets/f49085ef-3901-4630-a40b-899423f0b554" alt="Image 1 Description" width="75%">
+    </td>
+    <td>
+      <img src="https://github.com/user-attachments/assets/514904c4-ad37-49af-bb93-0f5c4e1769de" alt="Image 2 Description" width="75%">
+    </td>
+  </tr>
+</table>
 
 
 This module introduces a suite of configurable trackers for common survival elements like hunger, thirst, and sleep deprivation, along with more nuanced needs such as bladder and bowel relief, boredom, stress, and even wetness. Each tracker can impose progressive negative conditions on characters as their needs become more severe, all managed through dynamically applied effects.
