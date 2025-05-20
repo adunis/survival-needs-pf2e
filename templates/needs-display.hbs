@@ -1,35 +1,48 @@
-<!-- templates/needs-display.hbs -->
-<div class="survival-needs-display {{moduleId}}"> {{!-- Added moduleId class for specific targeting --}}
-    <h4>{{localize (concat moduleId ".sheet.title")}}</h4> {{!-- Survival Needs --}}
-
+<!-- File: templates/needs-display.hbs -->
+<div class="survival-needs-display {{moduleId}}">
     {{#if trackers.length}}
-        {{#each trackers as |tracker|}}
-        <div class="need-item {{tracker.id}}" data-tracker-id="{{tracker.id}}">
-            <label for="actor-{{tracker.id}}-{{../actorId}}" style="color: {{tracker.iconColor}};">
-                <i class="{{tracker.iconClass}}" title="{{tracker.name}}" style="color: {{tracker.iconColor}};"></i>
-                {{tracker.name}}:
-            </label>
-            <div class="need-controls">
-                <input type="number" 
-                       name="{{tracker.flagPath}}" 
-                       value="{{tracker.currentValue}}" 
-                       data-dtype="Number" 
-                       min="0" 
-                       max="{{tracker.maxValue}}" 
-                       title="{{localize (concat moduleId ".sheet.currentLabel")}} {{tracker.name}}"/>
-                <span>/ {{tracker.maxValue}}</span>
-                {{#if tracker.regeneration.byItem}}
-                <button type="button" 
-                        class="consume-button" 
-                        data-tracker-id="{{tracker.id}}" 
-                        title="{{tracker.regeneration.itemButtonLabel}}">
-                    <i class="{{tracker.regeneration.itemButtonIcon}}"></i>
-                </button>
-                {{/if}}
+        {{#each trackers as |trackerConfig|}} {{!-- Changed 'tracker' to 'trackerConfig' for clarity --}}
+            <div class="need-item {{trackerConfig.id}}">
+                <label title="{{trackerConfig.name}}">
+                    <i class="tracker-icon {{trackerConfig.iconClass}}" style="color:{{trackerConfig.iconColor}};"></i> 
+                     {{trackerConfig.name}} {{!-- Removed one   for slightly less space --}}
+                </label>
+                <div class="need-controls">
+                    <input class="tracker-value-input" 
+                           type="number" 
+                           name="{{trackerConfig.flagPath}}" 
+                           value="{{trackerConfig.currentValue}}" 
+                           min="0" 
+                           max="{{trackerConfig.maxValue}}" 
+                           data-tracker-id="{{trackerConfig.id}}" />
+                    <span class="need-max-value">/ {{trackerConfig.maxValue}}</span>
+                    
+                    {{#if trackerConfig.regeneration.byItem}}
+                        <button type="button" 
+                                class="consume-button icon-only-button" {{!-- Added icon-only-button for consistent styling --}}
+                                data-tracker-id="{{trackerConfig.id}}" 
+                                title="{{trackerConfig.regeneration.itemButtonLabel}}">
+                            <i class="{{trackerConfig.regeneration.itemButtonIcon}}"></i>
+                        </button>
+                    {{/if}}
+
+                    {{#if trackerConfig.specialActions}}
+                        {{#each trackerConfig.specialActions as |action|}}
+                            <button type="button" 
+                                    class="special-action-button icon-only-button" 
+                                    data-tracker-id="{{trackerConfig.id}}" {{!-- Correct: Access parent context's id --}}
+                                    data-action-id="{{action.actionId}}"
+                                    title="{{action.label}}"> 
+                                <i class="{{action.icon}}"></i>
+                            </button>
+                        {{/each}}
+                    {{/if}}
+                </div>
             </div>
-        </div>
         {{/each}}
     {{else}}
-        <p class="notes">{{localize (concat moduleId ".sheet.noTrackersEnabled")}}</p>
+        {{!-- This 'else' corresponds to 'if trackers.length'. 
+             The 'unless trackers' further down was redundant. --}}
+        <p class="no-trackers-message">{{localize (concat moduleId ".sheet.noTrackersEnabled")}}</p>
     {{/if}}
 </div>

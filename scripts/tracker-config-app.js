@@ -38,8 +38,7 @@ export class TrackerConfigApp extends FormApplication {
 
         // Provide a list of available PF2e condition slugs for dropdowns
         data.availableConditionSlugs = [""] // Add an empty option for "none" or "select"
-            .concat(Object.keys(CONFIG.PF2E.conditionTypes).sort());
-        
+            .concat(Object.keys(CONFIG.PF2E.conditionTypes).sort()); // Correct: use standard Array.prototype.concat        
         // console.log("TrackerConfigApp | getData() | trackerConfigs for template:", data.trackerConfigs);
         return data;
     }

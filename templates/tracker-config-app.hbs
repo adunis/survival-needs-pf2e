@@ -5,7 +5,7 @@
     </p>
     
     <div class="trackers-list-container">
-        {{#if trackerConfigs.length}}
+        {{#if trackerConfigs.lensn_gth}}
             {{#each trackerConfigs as |tracker trackerIndex|}}
             <div class="tracker-entry" data-tracker-id="{{tracker.id}}">
                 <header class="flexrow">
@@ -17,7 +17,7 @@
                         <label class="checkbox" title="Enable/Disable Tracker">
                             <input type="checkbox" name="trackerConfigs.{{trackerIndex}}.enabled" {{checked tracker.enabled}} /> Enable
                         </label>
-                        {{#unless (or (eq tracker.id "hunger") (eq tracker.id "thirst") (eq tracker.id "sleep"))}}
+                        {{#unless (or (sn_eq tracker.id "hunger") (sn_eq tracker.id "thirst") (sn_eq tracker.id "sleep"))}}
                             <a class="remove-tracker clickable" title="Remove Tracker"><i class="fas fa-trash"></i></a>
                         {{/unless}}
                     </div>
@@ -30,8 +30,8 @@
                     </div>
                     <div class="form-group">
                         <label>Internal ID:</label>
-                        {{#if (or (eq tracker.id "hunger") (eq tracker.id "thirst") (eq tracker.id "sleep"))}}
-                            <input type="text" name="trackerConfigs.{{trackerIndex}}.id" value="{{tracker.id}}" readonly title="ID of default trackers cannot be changed." />
+                        {{#if (or (sn_eq tracker.id "hunger") (sn_eq tracker.id "thirst") (sn_eq tracker.id "sleep"))}}
+                            <input type="text" name="trackerConfigs.{{trackerIndex}}.id" value="{{tracker.id}}" readonly title="ID of defausn_lt trackers cannot be changed." />
                         {{else}}
                             <input type="text" name="trackerConfigs.{{trackerIndex}}.id" value="{{tracker.id}}" pattern="[a-zA-Z0-9\-_]+" title="Alphanumeric, hyphen, underscore only. No spaces. Cannot be changed after creation through this UI easily." />
                         {{/if}}
@@ -81,7 +81,7 @@
                                 <label>Apply Condition:</label>
                                 <select name="trackerConfigs.{{../trackerIndex}}.conditions.{{condIndex}}.slug">
                                     {{#each @root.availableConditionSlugs}}
-                                    <option value="{{this}}" {{#if (eq this ../condition.slug)}}selected{{/if}}>{{#if this}}{{this}}{{else}}-- Select --{{/if}}</option>
+                                    <option value="{{this}}" {{#if (sn_eq this ../condition.slug)}}selected{{/if}}>{{#if this}}{{this}}{{else}}-- Select --{{/if}}</option>
                                     {{/each}}
                                 </select>
                             </div>
@@ -129,11 +129,11 @@
                     </div>
                     <div class="form-group">
                         <label>Item Types (comma-sep):</label>
-                        <input type="text" name="trackerConfigs.{{trackerIndex}}.regeneration.itemFilter.types" value="{{join tracker.regeneration.itemFilter.types ','}}" placeholder="consumable,equipment"/>
+                        <input type="text" name="trackerConfigs.{{trackerIndex}}.regeneration.itemFilter.types" value="{{sn_join tracker.regeneration.itemFilter.types ','}}" placeholder="consumable,equipment"/>
                     </div>
                     <div class="form-group">
                         <label>Item Name Keywords (comma-sep):</label>
-                        <input type="text" name="trackerConfigs.{{trackerIndex}}.regeneration.itemFilter.nameKeywords" value="{{join tracker.regeneration.itemFilter.nameKeywords ','}}" placeholder="food,ration,drink"/>
+                        <input type="text" name="trackerConfigs.{{trackerIndex}}.regeneration.itemFilter.nameKeywords" value="{{sn_join tracker.regeneration.itemFilter.nameKeywords ','}}" placeholder="food,ration,drink"/>
                     </div>
                     <div class="form-group">
                         <label>Item Restore Amount:</label>
