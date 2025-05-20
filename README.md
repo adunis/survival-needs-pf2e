@@ -60,7 +60,7 @@ This module introduces a suite of configurable trackers for common survival elem
 
 ## Installation
 
-1.  Install the module through the Foundry VTT module installer by searching for "Survival Needs PF2e" (once published) or using the manifest URL.
+1.  Put this link https://github.com/adunis/survival-needs-pf2e/releases/latest/download/module.json into the Foundry Manifest URL field
 2.  Enable the module in your game world.
 
 ## Configuration
