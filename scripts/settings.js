@@ -1,18 +1,25 @@
 // File: scripts/settings.js
-import { MODULE_ID, SETTINGS, DEFAULT_TRACKER_CONFIGS } from "./constants.js";
-// TrackerConfigApp is no longer needed if we edit JSON directly
-// import { TrackerConfigApp } from "./tracker-config-app.js"; 
+import {
+    MODULE_ID,
+    SETTINGS,
+    DEFAULT_TRACKER_CONFIGS,
+    DEFAULT_CONSUMPTION_CALC_SETTINGS
+} from "./constants.js";
 
+/**
+ * Registers all module settings.
+ */
 export function registerSettings() {
     const logPrefix = `%c[${MODULE_ID} | Settings]`;
     const settingStyle = "color: saddlebrown;";
+    const detailStyle = "color: darkslateblue;";
 
-    // --- Global Settings ---
+    // --- Global Settings (Update Interval, Affects NPCs) ---
     game.settings.register(MODULE_ID, SETTINGS.UPDATE_INTERVAL_HOURS, {
         name: `${MODULE_ID}.settings.${SETTINGS.UPDATE_INTERVAL_HOURS}.name`,
         hint: `${MODULE_ID}.settings.${SETTINGS.UPDATE_INTERVAL_HOURS}.hint`,
         scope: "world",
-        config: true, // Show in the standard settings list
+        config: true,
         type: Number,
         default: 4,
         range: { min: 1, max: 72, step: 1 },
@@ -30,72 +37,136 @@ export function registerSettings() {
         default: false,
         onChange: value => {
             console.log(`${logPrefix} Setting '${SETTINGS.AFFECTS_NPCS}' changed to: ${value}`, settingStyle);
-            if (window.survivalNeedsGlobalInstance?.needsManager && game.user.isGM) {
-                // Consider a targeted re-evaluation if this changes
-                // For now, a full setup might be too broad, but it's an option:
+            if (game.user.isGM && window.survivalNeedsGlobalInstance?.performInitialActorSetup) {
+                // Consider debouncing or notifying GM for manual refresh if many NPCs
                 // window.survivalNeedsGlobalInstance.performInitialActorSetup();
             }
         }
     });
 
-    // --- Tracker Configurations Data Setting (Direct JSON Edit) ---
+    // --- Tracker Definitions JSON ---
     game.settings.register(MODULE_ID, SETTINGS.TRACKER_CONFIGS, {
-        name: `${MODULE_ID}.settings.trackerConfigJSON.name`, // Localization key for "Tracker Configurations (JSON)"
-        hint: `${MODULE_ID}.settings.trackerConfigJSON.hint`, // Localization key for hint about editing JSON
+        name: `${MODULE_ID}.settings.trackerDefinitionsJSON.name`,
+        hint: `${MODULE_ID}.settings.trackerDefinitionsJSON.hint`,
         scope: "world",
-        config: true, // <<<<<<< SET TO TRUE to make it appear in the settings UI
-        type: String, // Stored as a string
-        // It's better to use a textarea for editing JSON, but Foundry's default for String is a text input.
-        // For a true textarea, you'd typically need a custom FormApplication or use a module like TidyUI Game Settings.
-        // However, users can still paste multi-line JSON into a standard text input.
-        default: JSON.stringify(DEFAULT_TRACKER_CONFIGS, null, 2), // Pretty-printed JSON as default
+        config: true,
+        type: String,
+        default: JSON.stringify(DEFAULT_TRACKER_CONFIGS, null, 2),
         onChange: value => {
-            console.log(`${logPrefix} Setting '${SETTINGS.TRACKER_CONFIGS}' (JSON) changed.`, settingStyle);
-            // Attempt to parse to see if it's valid JSON early
+            console.log(`${logPrefix} Setting '${SETTINGS.TRACKER_CONFIGS}' (Tracker Definitions JSON) changed by user.`, settingStyle);
             try {
                 JSON.parse(value);
-                console.log(`${logPrefix} New JSON string appears valid. NeedsManager will reload.`, settingStyle);
+                console.log(`${logPrefix} New Tracker Definitions JSON appears valid.`, detailStyle);
             } catch (e) {
-                ui.notifications.error(game.i18n.format("SURVIVAL_NEEDS.notifications.invalidTrackerJSON", {error: e.message}));
-                console.error(`${logPrefix} Invalid JSON provided for Tracker Configurations:`, e);
-                // Optionally, you could prevent saving an invalid JSON or revert to default,
-                // but Foundry's settings framework doesn't easily support that in an onChange.
-                // The getTrackerConfigs() function will handle falling back to defaults if parsing fails.
+                ui.notifications.error(game.i18n.format("SURVIVAL_NEEDS.notifications.invalidTrackerJSON", { error: e.message }));
+                console.error(`${logPrefix} Invalid JSON for Tracker Definitions:`, "color:red;", e);
             }
-
             if (window.survivalNeedsGlobalInstance?.needsManager) {
-                window.survivalNeedsGlobalInstance.needsManager.loadTrackerConfigs();
-                // Consider prompting GM to run a full actor effect refresh after such a direct edit
+                window.survivalNeedsGlobalInstance.needsManager.loadAllConfigs();
                 if (game.user.isGM) {
                     Dialog.confirm({
                         title: game.i18n.localize(`${MODULE_ID}.dialogs.jsonConfigChanged.title`),
-                        content: `<p>${game.i18n.localize(`${MODULE_ID}.dialogs.jsonConfigChanged.content`)}</p>`,
-                        yes: () => {
-                            if (window.survivalNeedsGlobalInstance) {
+                        content: game.i18n.localize(`${MODULE_ID}.dialogs.jsonConfigChanged.content`),
+                        yes: async () => {
+                            if (window.survivalNeedsGlobalInstance?.performInitialActorSetup) {
                                 ui.notifications.info(game.i18n.localize(`${MODULE_ID}.dialogs.jsonConfigChanged.refreshing`));
-                                window.survivalNeedsGlobalInstance.performInitialActorSetup();
+                                await window.survivalNeedsGlobalInstance.performInitialActorSetup();
                             }
                         },
                         no: () => {},
-                        defaultYes: false
+                        defaultYes: true
                     });
                 }
             }
         }
     });
 
-    // --- REMOVE Menu for Custom Tracker Configuration UI ---
-    // game.settings.registerMenu(MODULE_ID, "trackerConfigMenu", { ... }); // THIS LINE IS REMOVED/COMMENTED OUT
+    // --- Consumption Calculation Settings JSON ---
+    game.settings.register(MODULE_ID, SETTINGS.CONSUMPTION_CALC_SETTINGS, {
+        name: `${MODULE_ID}.settings.consumptionCalcSettingsJSON.name`,
+        hint: `${MODULE_ID}.settings.consumptionCalcSettingsJSON.hint`,
+        scope: "world", config: true, type: String,
+        default: JSON.stringify(DEFAULT_CONSUMPTION_CALC_SETTINGS, null, 2),
+        onChange: value => {
+            console.log(`${logPrefix} Setting '${SETTINGS.CONSUMPTION_CALC_SETTINGS}' changed by user.`, settingStyle);
+            try { JSON.parse(value); console.log(`${logPrefix} New Consumption Calc Settings JSON appears valid.`, detailStyle); }
+            catch (e) { ui.notifications.error(game.i18n.format("SURVIVAL_NEEDS.notifications.invalidCalcSettingsJSON", { error: e.message })); console.error(`${logPrefix} Invalid JSON for Calc Settings:`, "color:red;", e); }
+            if (window.survivalNeedsGlobalInstance?.needsManager) { window.survivalNeedsGlobalInstance.needsManager.loadAllConfigs(); }
+        }
+    });
 
-    console.log(`%c[${MODULE_ID}] Settings registered (direct JSON edit for trackers).`, "color: green;");
+ // --- "Reset All Configurations" Action Trigger ---
+    game.settings.register(MODULE_ID, "resetAllAction", {
+        name: game.i18n.localize(`${MODULE_ID}.settings.resetConfigs.name`), // e.g., "Reset All Configurations"
+        hint: game.i18n.localize(`${MODULE_ID}.settings.resetConfigs.hint`), // e.g., "Restores... This action cannot be undone..."
+        label: game.i18n.localize(`${MODULE_ID}.settings.resetConfigs.label`), // Button-like text for the checkbox itself
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false,
+        onChange: async (value) => {
+            if (value === true) {
+                // Perform the reset action
+                await performConfigReset();
+                // Important: Set the value back to false so the "button" can be "pressed" again.
+                // Use a slight delay to ensure the settings panel can visually update if needed,
+                // though usually direct set is fine.
+                await game.settings.set(MODULE_ID, "resetAllAction", false);
+            }
+        }
+    });
 }
 
+async function performConfigReset() {
+    const logPrefix = `%c[${MODULE_ID} | Settings | ResetAction]`;
+    console.log(`${logPrefix} Reset action triggered.`, "color:darkred;");
+
+    Dialog.confirm({
+        title: game.i18n.localize(`${MODULE_ID}.settings.resetConfigs.name`), // "Reset All Configurations"
+        content: `<p>${game.i18n.localize("SURVIVAL_NEEDS.dialogs.resetConfirm.text1")}</p>
+                  <p>${game.i18n.localize("SURVIVAL_NEEDS.dialogs.resetConfirm.text2")}</p>`,
+        yes: async () => {
+            console.log(`${logPrefix} Confirmed. Resetting configurations.`, "color:darkred;");
+            try {
+                // Set settings directly. Their own onChange handlers will be triggered
+                // (e.g., for reloading configs in NeedsManager).
+                await game.settings.set(MODULE_ID, SETTINGS.TRACKER_CONFIGS, JSON.stringify(DEFAULT_TRACKER_CONFIGS, null, 2));
+                await game.settings.set(MODULE_ID, SETTINGS.CONSUMPTION_CALC_SETTINGS, JSON.stringify(DEFAULT_CONSUMPTION_CALC_SETTINGS, null, 2));
+                
+                ui.notifications.info(game.i18n.localize("SURVIVAL_NEEDS.notifications.configsReset"));
+                console.log(`${logPrefix} Configurations reset.`, "color:darkred;");
+
+                // The onChange for TRACKER_CONFIGS already prompts for actor refresh.
+            } catch (e) {
+                console.error(`${logPrefix} Error resetting configurations:`, "color:red; font-weight:bold;", e);
+                ui.notifications.error(game.i18n.localize("SURVIVAL_NEEDS.notifications.configsResetError"));
+            }
+        },
+        no: () => {
+            console.log(`${logPrefix} Reset cancelled by user.`, "color:darkred;");
+        },
+        defaultYes: false,
+        buttons: {
+            yes: {
+                icon: '<i class="fas fa-trash"></i>',
+                label: game.i18n.localize("SURVIVAL_NEEDS.buttons.confirmReset"), // "Yes, Reset Defaults"
+                callback: () => { /* Handled by Dialog's yes option */ }
+            },
+            no: {
+                icon: '<i class="fas fa-times"></i>',
+                label: game.i18n.localize("Cancel"),
+                callback: () => { /* Handled by Dialog's no option */ }
+            }
+        }
+    });
+}
+
+
 /**
- * Retrieves the parsed tracker configurations from settings.
- * Provides default configurations if the setting is invalid or not found.
+ * Retrieves the parsed tracker configurations array.
  */
 export function getTrackerConfigs() {
-    const logPrefix = `%c[${MODULE_ID} | Settings]`;
+    const logPrefix = `%c[${MODULE_ID} | Settings | getTrackerConfigs]`;
     const errorStyle = "color: red; font-weight: bold;";
     const warningStyle = "color: orange;";
 
@@ -104,36 +175,86 @@ export function getTrackerConfigs() {
         if (jsonString && jsonString.trim() !== "") {
             const configs = JSON.parse(jsonString);
             if (Array.isArray(configs)) {
-                // Optional: Add more detailed validation for each config object here if desired
-                // to ensure it has required keys like id, name, thresholdEffects etc.
-                // For now, basic array check is done.
-                return configs.map(c => ({ // Basic merge with defaults to ensure core keys
-                    id: c.id || foundry.utils.randomID(), 
-                    name: c.name || "Unnamed Tracker", 
-                    enabled: typeof c.enabled === 'boolean' ? c.enabled : false,
-                    iconClass: c.iconClass || "fas fa-question", 
-                    iconColor: c.iconColor || "#CCCCCC",
-                    defaultValue: typeof c.defaultValue === 'number' ? c.defaultValue : 0, 
-                    maxValue: typeof c.maxValue === 'number' ? c.maxValue : 100, 
-                    increasePerInterval: typeof c.increasePerInterval === 'number' ? c.increasePerInterval : 0,
-                    thresholdEffects: Array.isArray(c.thresholdEffects) ? c.thresholdEffects : [], 
-                    regeneration: c.regeneration || { 
-                        byLongRest: false, longRestAmount: 0, byItem: false,
-                        itemFilter: { types: ["consumable"], nameKeywords: [] },
-                        itemRestoreAmount: 0, itemButtonLabel: "Use", itemButtonIcon: "fas fa-hand-paper"
-                    },
-                    ...c // User's config overrides any well-defined defaults above
-                }));
+                const defaultTrackersById = foundry.utils.deepClone(DEFAULT_TRACKER_CONFIGS).reduce((acc, def) => {
+                    acc[def.id] = def;
+                    return acc;
+                }, {});
+
+                return configs.map(userConfig => {
+                    const defaultConfig = defaultTrackersById[userConfig.id] || {};
+                    return {
+                        ...defaultConfig,
+                        ...userConfig,
+                        regeneration: {
+                            ...(defaultConfig.regeneration || {}),
+                            ...(userConfig.regeneration || {}),
+                            itemFilter: {
+                                ...((defaultConfig.regeneration || {}).itemFilter || {}),
+                                ...((userConfig.regeneration || {}).itemFilter || {}),
+                            }
+                        },
+                        thresholdEffects: Array.isArray(userConfig.thresholdEffects) ? userConfig.thresholdEffects : (defaultConfig.thresholdEffects || []),
+                        specialActions: Array.isArray(userConfig.specialActions) ? userConfig.specialActions : (defaultConfig.specialActions || []),
+                        id: userConfig.id || foundry.utils.randomID(),
+                        name: userConfig.name || "Unnamed Tracker",
+                        enabled: typeof userConfig.enabled === 'boolean' ? userConfig.enabled : (defaultConfig.enabled !== undefined ? defaultConfig.enabled : false),
+                        iconClass: userConfig.iconClass || defaultConfig.iconClass || "fas fa-question",
+                        iconColor: userConfig.iconColor || defaultConfig.iconColor || "#CCCCCC",
+                        defaultValue: typeof userConfig.defaultValue === 'number' ? userConfig.defaultValue : (defaultConfig.defaultValue || 0),
+                        maxValue: typeof userConfig.maxValue === 'number' ? userConfig.maxValue : (defaultConfig.maxValue || 100),
+                        increasePerInterval: typeof userConfig.increasePerInterval === 'number' ? userConfig.increasePerInterval : (defaultConfig.increasePerInterval || 0),
+                    };
+                });
             } else {
-                 console.warn(`${logPrefix} Tracker configurations setting is not a valid JSON array. Using defaults. Config was:`, warningStyle, jsonString);
+                console.warn(`${logPrefix} Setting '${SETTINGS.TRACKER_CONFIGS}' is not a valid JSON array. Using full defaults.`, warningStyle);
+                return foundry.utils.deepClone(DEFAULT_TRACKER_CONFIGS);
             }
         } else {
-            console.warn(`${logPrefix} Tracker configurations setting is empty. Using defaults.`, warningStyle);
+            console.warn(`${logPrefix} Setting '${SETTINGS.TRACKER_CONFIGS}' is empty. Using full defaults.`, warningStyle);
+            return foundry.utils.deepClone(DEFAULT_TRACKER_CONFIGS);
         }
-        return foundry.utils.deepClone(DEFAULT_TRACKER_CONFIGS); 
     } catch (e) {
-        console.error(`${logPrefix} Error parsing Tracker Configurations JSON from settings:`, errorStyle, e);
-        ui.notifications.error(game.i18n.localize("SURVIVAL_NEEDS.notifications.errorLoadingTrackerConfig"));
+        console.error(`${logPrefix} Error parsing '${SETTINGS.TRACKER_CONFIGS}' JSON. Using full defaults. Error:`, errorStyle, e);
+        ui.notifications.error(game.i18n.localize("SURVIVAL_NEEDS.notifications.errorLoadingTrackerConfig") + ` Using defaults.`);
         return foundry.utils.deepClone(DEFAULT_TRACKER_CONFIGS);
     }
+}
+
+/**
+ * Retrieves the parsed consumption calculation settings object.
+ */
+export function getConsumptionCalcSettings() {
+    const logPrefix = `%c[${MODULE_ID} | Settings | getConsumptionCalcSettings]`;
+    const errorStyle = "color: red; font-weight: bold;";
+    const warningStyle = "color: orange;";
+
+    try {
+        const jsonString = game.settings.get(MODULE_ID, SETTINGS.CONSUMPTION_CALC_SETTINGS);
+        if (jsonString && jsonString.trim() !== "") {
+            const settings = JSON.parse(jsonString);
+            if (typeof settings === 'object' && settings !== null) {
+                return { ...foundry.utils.deepClone(DEFAULT_CONSUMPTION_CALC_SETTINGS), ...settings };
+            } else {
+                console.warn(`${logPrefix} Setting '${SETTINGS.CONSUMPTION_CALC_SETTINGS}' not a valid JSON object. Using defaults.`, warningStyle);
+            }
+        } else {
+            console.warn(`${logPrefix} Setting '${SETTINGS.CONSUMPTION_CALC_SETTINGS}' is empty. Using defaults.`, warningStyle);
+        }
+        return foundry.utils.deepClone(DEFAULT_CONSUMPTION_CALC_SETTINGS);
+    } catch (e) {
+        console.error(`${logPrefix} Error parsing '${SETTINGS.CONSUMPTION_CALC_SETTINGS}' JSON:`, errorStyle, e);
+        ui.notifications.error(game.i18n.localize("SURVIVAL_NEEDS.notifications.errorLoadingCalcSettings")  + ` Using defaults.`);
+        return foundry.utils.deepClone(DEFAULT_CONSUMPTION_CALC_SETTINGS);
+    }
+}
+/**
+ * Initializes handlers for actions triggered from the settings UI (e.g., links, buttons).
+ * These handlers are placed on the global `window.SurvivalNeedsNS` namespace.
+ */
+export function initializeActionHandlers() {
+    const logPrefixBase = `%c[${MODULE_ID} | Settings | ActionHandlers]`;
+    window.SurvivalNeedsNS = window.SurvivalNeedsNS || {};
+    // If other window.SurvivalNeedsNS functions were defined, they would go here.
+    // The resetAllConfigsToDefaults is now implicitly handled by performConfigReset.
+    console.log(`${logPrefixBase} Action handlers (if any) initialized. Reset logic is now in setting onChange.`, "color:saddlebrown;");
 }

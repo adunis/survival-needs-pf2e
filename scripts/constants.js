@@ -6,25 +6,63 @@ export const MODULE_ID = "survival-needs-pf2e";
 export const SETTINGS = {
     UPDATE_INTERVAL_HOURS: "updateIntervalHours",
     AFFECTS_NPCS: "affectsNPCs",
-    TRACKER_CONFIGS: "trackerConfigs",
+    TRACKER_CONFIGS: "trackerConfigs", // For the array of trackers
+    CONSUMPTION_CALC_SETTINGS: "consumptionCalculationSettings" // NEW key for specific constants
 };
 
 // --- FLAGS ---
+// ... (flags remain the same) ...
 export const FLAG_PREFIX = `flags.${MODULE_ID}`;
 export const LAST_UPDATE_TIME_FLAG_KEY = "lastUpdateTime";
-
-// Flags ON our dynamically created Parent Effect Items on Actors
 export const DYNAMIC_EFFECT_FLAG_MODULE_MANAGED = "isSurvivalNeedEffect";
 export const DYNAMIC_EFFECT_FLAG_SOURCE_TRACKER_ID = "sourceTrackerId";
 export const DYNAMIC_EFFECT_FLAG_THRESHOLD_NAME = "thresholdName";
 
 
-// --- DEFAULT ICONS for Threshold Effects ---
 const ICON_PATH_PREFIX = `modules/${MODULE_ID}/icons/`; 
 
-// --- DEFAULT TRACKER CONFIGURATIONS ---
+// --- DEFAULT VALUES FOR THE NEW CONSUMPTION CALCULATION SETTINGS ---
+export const DEFAULT_CONSUMPTION_CALC_SETTINGS = {
+    STANDARD_FOOD_USE_EFFECTIVE_BULK: 0.02,
+    STANDARD_DRINK_USE_EFFECTIVE_BULK: 0.02,
+    // Modifiers for caloric types (relative to base restore from item)
+    CALORIC_MODIFIERS: {
+        low: 0.5,
+        medium: 1.0,
+        high: 1.5
+    },
+    // Modifiers for drink caloric content (relative to base food restore)
+    DRINK_CALORIC_MODIFIERS: {
+        none: 0,
+        slight: 0.25, 
+        high: 0.75  
+    },
+    // Boredom/Stress modifiers
+    TASTE_BOREDOM: {
+        boring: 20,      // Increases boredom
+        average: 0,
+        interesting: -30 // Decreases boredom
+    },
+    DRINK_QUALITY_STRESS: {
+        dirty: 25,       // Increases stress
+        average: 0,
+        purified: -15    // Decreases stress
+    },
+    ALCOHOLIC_EFFECTS: {
+        stress: 10,      // Increases stress
+        boredom: -40     // Decreases boredom
+    },
+    POTION_EFFECTS: {
+        stress: 15,      // Increases stress
+        boredom: -10     // Decreases boredom
+    },
+    THIRST_TO_PISS_MULTIPLIER: 2.0,
+    HUNGER_TO_POOP_MULTIPLIER: 6.0
+};
+
+
+// --- DEFAULT TRACKER CONFIGURATIONS (remains an array) ---
 export const DEFAULT_TRACKER_CONFIGS = [
-    // --- HUNGER ---
     {
         id: "hunger",
         name: "Hunger",

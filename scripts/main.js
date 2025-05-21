@@ -8,7 +8,7 @@ import {
 } from "./constants.js";
 import { NeedsManager } from "./actor-needs.js";
 import { SheetIntegration } from "./sheet-integration.js";
-import { registerSettings } from "./settings.js"; 
+import { registerSettings, initializeActionHandlers } from "./settings.js"; 
 // TrackerConfigApp is imported within settings.js
 // ConditionManager (old) and ConditionManagerV2 are handled by NeedsManager now
 
@@ -26,11 +26,19 @@ class SurvivalNeedsModule {
   /**
    * Initializes the module.
    */
-  initialize() {
+initialize() {
     Hooks.once("init", () => {
-      console.log(`%c[${this.moduleId}] Hook: init - Registering settings and Handlebars helpers.`, "color: green;");
-      registerSettings();
+      // ADD THIS VERY FIRST LOG FOR THE INIT HOOK
+      console.log(`%c[${this.moduleId}] HOOK: init - STARTING NOW`, "background-color: #FFD700; color: black; font-size: 14px; font-weight: bold;");
+      
+      initializeActionHandlers(); 
+      // ADD THIS LOG:
+      console.log(`%c[${this.moduleId}] HOOK: init - CALLED initializeActionHandlers. SurvivalNeedsNS IS NOW:`, "color: purple; font-weight: bold;", foundry.utils.deepClone(window.SurvivalNeedsNS)); // deepClone to see its state at this moment
 
+      registerSettings();
+      console.log(`%c[${this.moduleId}] HOOK: init - CALLED registerSettings.`, "color: purple; font-weight: bold;");
+
+      
       // Handlebars Helpers (ensure they are correctly defined)
       Handlebars.registerHelper("sn_join", function (arr, separator) {
         if (foundry.utils.isEmpty(arr)) return "";
@@ -45,7 +53,13 @@ class SurvivalNeedsModule {
         const args = Array.prototype.slice.call(arguments, 0, arguments.length - 1);
         return args.filter(arg => typeof arg !== "undefined" && arg !== null).join("");
       });
+
+
+            console.log(`%c[${this.moduleId}] HOOK: init - COMPLETED`, "background-color: #FFD700; color: black; font-size: 14px; font-weight: bold;");
+
     });
+
+
 
     Hooks.once("ready", async () => {
       console.log(`%c[${this.moduleId}] Hook: ready - System is ready. Initializing managers and hooks.`, "color: green;");
@@ -62,7 +76,7 @@ class SurvivalNeedsModule {
               console.log(`%c[${this.moduleId}] Debounced call to processActorNeedsAndEffects for ${actor.name}`, "color: blue;");
               const currentNeeds = this.needsManager.getActorNeeds(actor);
               // Ensure trackerConfigs are fresh if settings could have changed
-              this.needsManager.loadTrackerConfigs(); 
+              this.needsManager.loadAllConfigs(); 
               await this.needsManager.conditionManagerV2.processActorNeedsAndEffects(actor, currentNeeds, this.needsManager.trackerConfigs);
             } else {
               console.warn(`%c[${this.moduleId}] Debounced call: NeedsManager or actor no longer available.`, "color: orange;");
@@ -147,7 +161,7 @@ class SurvivalNeedsModule {
     if (!game.user.isGM || !this.needsManager) {
       return;
     }
-    this.needsManager.loadTrackerConfigs(); // Ensure latest configs
+    this.needsManager.loadAllConfigs(); // Ensure latest configs
 
     const actorsToProcess = [];
     const affectsNPCs = game.settings.get(MODULE_ID, SETTINGS.AFFECTS_NPCS);
