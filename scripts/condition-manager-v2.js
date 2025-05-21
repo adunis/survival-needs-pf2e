@@ -169,9 +169,12 @@ async processActorNeedsAndEffects(actor, currentNeeds, trackerConfigs) {
         let effectDataToCreateOnActor = [];
 
         for (const tracker of trackerConfigs) {
+
             const currentTrackerEffectsOnActor = existingModuleEffects.filter(
                 e => e.getFlag(MODULE_ID, DYNAMIC_EFFECT_FLAG_SOURCE_TRACKER_ID) === tracker.id
             );
+
+            
 
             if (!tracker.enabled || !tracker.thresholdEffects?.length) {
                 currentTrackerEffectsOnActor.forEach(eff => {
@@ -181,8 +184,19 @@ async processActorNeedsAndEffects(actor, currentNeeds, trackerConfigs) {
                 continue;
             }
 
-            const needValue = currentNeeds[tracker.id] ?? tracker.defaultValue ?? 0;
-            let activeThresholdConfig = null; 
+            const rawNeedData = currentNeeds[tracker.id]; // This is an object for divineFavor, number for others
+            let needValue;
+            let currentDynamicMax = tracker.maxValue ?? 100; // For divineFavor, this will be its calculated max
+
+            if (tracker.subProperties && Array.isArray(tracker.subProperties) && typeof rawNeedData === 'object' && rawNeedData !== null) {
+                needValue = rawNeedData.value ?? tracker.defaultValue ?? 0;
+                if (tracker.isDynamicMax && rawNeedData.hasOwnProperty('calculatedMaxValue')) {
+                    currentDynamicMax = rawNeedData.calculatedMaxValue;
+                }
+            } else {
+                needValue = rawNeedData ?? tracker.defaultValue ?? 0;
+            }
+                    let activeThresholdConfig = null; 
             let bestMatch = null;
             for (const stage of tracker.thresholdEffects) {
                 if (needValue >= stage.threshold) {

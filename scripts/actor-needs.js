@@ -1,3 +1,4 @@
+// File: scripts/actor-needs.js
 import {
     MODULE_ID,
     SETTINGS,
@@ -16,53 +17,47 @@ export class NeedsManager {
         this.consumptionCalcSettings = {};
         this.interTrackerLinks = new Map();
 
-        this.loadAllConfigs();
-
         const logPrefix = `%c[${MODULE_ID} | NeedsManager]`;
         const constructorStyle = "color: dodgerblue; font-weight:bold;";
-        console.log(`${logPrefix} Constructed. Using ConditionManagerV2. Version: Full_Corrected_V1.3`, constructorStyle);
+        // console.log(`${logPrefix} Constructed. Version: DF_MaxFix_Interval`, constructorStyle);
+        
+        this.loadAllConfigs();
     }
 
     loadAllConfigs() {
-        const logPrefix = `%c[${MODULE_ID} | NeedsManager | loadAllConfigs_V1.4_ResetDebug]`;
+        // ... (loadAllConfigs content remains the same) ...
+        const logPrefix = `%c[${MODULE_ID} | NeedsManager | loadAllConfigs_V1.7_DF_MaxFix]`;
         const detailStyle = "color: mediumblue;";
         const errorStyle = "color: red; font-weight: bold;";
         const warningStyle = "color: orange;";
-        console.log(`${logPrefix} ======= LOAD ALL CONFIGS CALLED =======`, "background-color: yellow; color: black;");
 
-        this.trackerConfigs = [];
+        this.trackerConfigs = []; 
         this.consumptionCalcSettings = {};
         this.interTrackerLinks = new Map();
 
         let rawTrackersFromSettings;
         try {
-            rawTrackersFromSettings = getTrackerConfigs();
-            console.log(`${logPrefix} Data from getTrackerConfigs() (should be from game.settings):`, detailStyle, foundry.utils.deepClone(rawTrackersFromSettings));
+            rawTrackersFromSettings = getTrackerConfigs(); 
         } catch (e) {
             console.error(`${logPrefix} ERROR calling getTrackerConfigs():`, errorStyle, e);
             rawTrackersFromSettings = null;
         }
 
         if (rawTrackersFromSettings && Array.isArray(rawTrackersFromSettings)) {
-            console.log(`${logPrefix} Filtering ${rawTrackersFromSettings.length} raw trackers based on 'enabled' flag...`, detailStyle);
-            rawTrackersFromSettings.forEach(t => console.log(`${logPrefix}   - Tracker: ${t.id}, Name: ${t.name}, Enabled: ${t.enabled}`, detailStyle));
             this.trackerConfigs = rawTrackersFromSettings.filter(tc => tc.enabled === true);
         } else {
-            console.warn(`${logPrefix} getTrackerConfigs() did not return valid array. Falling back to DEFAULT_TRACKER_CONFIGS.`, warningStyle);
+            console.warn(`${logPrefix} getTrackerConfigs() did not return valid array. Falling back to DEFAULT_TRACKER_CONFIGS (filtered).`, warningStyle);
             if (typeof DEFAULT_TRACKER_CONFIGS !== "undefined" && Array.isArray(DEFAULT_TRACKER_CONFIGS)) {
-                console.log(`${logPrefix} Using DEFAULT_TRACKER_CONFIGS for fallback:`, detailStyle, foundry.utils.deepClone(DEFAULT_TRACKER_CONFIGS));
                 this.trackerConfigs = foundry.utils.deepClone(DEFAULT_TRACKER_CONFIGS).filter(tc => tc.enabled === true);
             } else {
                 console.error(`${logPrefix} CRITICAL: DEFAULT_TRACKER_CONFIGS not available for fallback!`, errorStyle);
                 this.trackerConfigs = [];
             }
         }
-        console.log(`${logPrefix} FINAL this.trackerConfigs in NeedsManager has ${this.trackerConfigs.length} items:`,
-            this.trackerConfigs.length > 0 ? detailStyle : warningStyle,
-            this.trackerConfigs.map(t => t.id));
+            
         let consumptionSettingsAttempt;
         try {
-            consumptionSettingsAttempt = getConsumptionCalcSettings();
+            consumptionSettingsAttempt = getConsumptionCalcSettings(); 
         } catch (e) {
             console.error(`${logPrefix} ERROR calling getConsumptionCalcSettings():`, errorStyle, e);
             consumptionSettingsAttempt = null;
@@ -71,7 +66,7 @@ export class NeedsManager {
         if (consumptionSettingsAttempt && typeof consumptionSettingsAttempt === 'object' && consumptionSettingsAttempt !== null) {
             this.consumptionCalcSettings = consumptionSettingsAttempt;
         } else {
-            console.warn(`${logPrefix} getConsumptionCalcSettings() invalid result. Falling back to DEFAULT_CONSUMPTION_CALC_SETTINGS.`, warningStyle);
+            console.warn(`${logPrefix} getConsumptionCalcSettings() invalid. Falling back to DEFAULT_CONSUMPTION_CALC_SETTINGS.`, warningStyle);
             if (typeof DEFAULT_CONSUMPTION_CALC_SETTINGS !== "undefined" && typeof DEFAULT_CONSUMPTION_CALC_SETTINGS === "object") {
                 this.consumptionCalcSettings = foundry.utils.deepClone(DEFAULT_CONSUMPTION_CALC_SETTINGS);
             } else {
@@ -98,20 +93,46 @@ export class NeedsManager {
     getActorNeeds(actor) {
         const needs = {};
         if (!actor) return needs;
-        if (!this.trackerConfigs || this.trackerConfigs.length === 0 && Object.keys(this.consumptionCalcSettings).length === 0) {
-            this.loadAllConfigs();
-        }
+        
         for (const tracker of this.trackerConfigs) {
-            needs[tracker.id] = actor.getFlag(MODULE_ID, tracker.id) ?? tracker.defaultValue ?? 0;
+            const flagValue = actor.getFlag(MODULE_ID, tracker.id);
+
+            if (tracker.subProperties && Array.isArray(tracker.subProperties)) {
+                needs[tracker.id] = {
+                    value: flagValue?.value ?? tracker.defaultValue ?? 0
+                };
+                tracker.subProperties.forEach(subProp => {
+                    needs[tracker.id][subProp.id] = flagValue?.[subProp.id] ?? subProp.defaultValue ?? 0;
+                });
+
+                if (tracker.isDynamicMax && tracker.id === "divineFavor") {
+                    const shrines = needs[tracker.id].shrines ?? 0; // Default to 0 if undefined
+                    const followers = needs[tracker.id].followers ?? 0; // Default to 0
+                    let calcMax = tracker.defaultMaxValue ?? 3;
+                    
+                    // Check if shrinesPerExtraPoint is a positive number before dividing
+                    if (tracker.shrinesPerExtraPoint && tracker.shrinesPerExtraPoint > 0) {
+                        calcMax += Math.floor(shrines / tracker.shrinesPerExtraPoint);
+                    }
+                    // Check if followersPerMaxPoint is a positive number
+                    if (tracker.followersPerMaxPoint && tracker.followersPerMaxPoint > 0) {
+                        calcMax += Math.floor(followers / tracker.followersPerMaxPoint);
+                    }
+                    needs[tracker.id].calculatedMaxValue = calcMax;
+                } else if (tracker.isDynamicMax) {
+                    needs[tracker.id].calculatedMaxValue = tracker.maxValue ?? 100;
+                }
+
+            } else {
+                needs[tracker.id] = flagValue ?? tracker.defaultValue ?? 0;
+            }
         }
         return needs;
     }
 
+    // ... (needsInitialization, getInitializationFlags remain the same) ...
     needsInitialization(actor) {
         if (!actor) return false;
-        if (!this.trackerConfigs || this.trackerConfigs.length === 0 && Object.keys(this.consumptionCalcSettings).length === 0) {
-            this.loadAllConfigs();
-        }
         for (const tracker of this.trackerConfigs) {
             if (actor.getFlag(MODULE_ID, tracker.id) === undefined) return true;
         }
@@ -120,22 +141,25 @@ export class NeedsManager {
 
     getInitializationFlags() {
         const updates = {};
-        if (!this.trackerConfigs || this.trackerConfigs.length === 0 && Object.keys(this.consumptionCalcSettings).length === 0) {
-            this.loadAllConfigs();
-        }
         for (const tracker of this.trackerConfigs) {
-            updates[`${FLAG_PREFIX}.${tracker.id}`] = tracker.defaultValue ?? 0;
+            if (tracker.subProperties && Array.isArray(tracker.subProperties)) {
+                const initialTrackerObject = { value: tracker.defaultValue ?? 0 };
+                tracker.subProperties.forEach(sp => {
+                    initialTrackerObject[sp.id] = sp.defaultValue ?? 0;
+                });
+                updates[`${FLAG_PREFIX}.${tracker.id}`] = initialTrackerObject;
+            } else {
+                updates[`${FLAG_PREFIX}.${tracker.id}`] = tracker.defaultValue ?? 0;
+            }
         }
         updates[`${FLAG_PREFIX}.${LAST_UPDATE_TIME_FLAG_KEY}`] = game.time.worldTime;
         return updates;
     }
 
-    async initializeNeedsForActor(actor) {
-        const logPrefix = `%c[${MODULE_ID} | NeedsManager | InitActor | ${actor?.name || 'Unknown'}]`;
-        const detailStyle = "color: dodgerblue;";
 
+    async initializeNeedsForActor(actor) {
         if (!actor || typeof actor.getFlag !== 'function') { return; }
-        this.loadAllConfigs();
+        this.loadAllConfigs(); 
 
         const affectsNPCs = game.settings.get(MODULE_ID, SETTINGS.AFFECTS_NPCS);
         if (actor.type !== 'character' && (actor.type !== 'npc' || !affectsNPCs)) { return; }
@@ -149,23 +173,24 @@ export class NeedsManager {
         await this.conditionManagerV2.processActorNeedsAndEffects(actor, currentNeeds, this.trackerConfigs);
     }
 
-    async onUpdateWorldTime(worldTime) {
-        const logPrefix = `%c[${MODULE_ID} | NeedsManager | UpdateWorldTime]`;
-        const detailStyle = "color: dodgerblue;";
-        const errorStyle = "color: red; font-weight:bold;";
-
+  async onUpdateWorldTime(worldTime) {
         if (!game.user.isGM) return;
         this.loadAllConfigs();
+
         const updateIntervalHours = game.settings.get(MODULE_ID, SETTINGS.UPDATE_INTERVAL_HOURS);
         const updateIntervalSeconds = updateIntervalHours * 3600;
 
         if (updateIntervalSeconds <= 0 || this.trackerConfigs.length === 0) return;
 
         const affectsNPCs = game.settings.get(MODULE_ID, SETTINGS.AFFECTS_NPCS);
-        let processedActorCount = 0;
+        const logPrefix = `%c[${MODULE_ID} | NeedsManager | UpdateWorldTime_DFix]`;
+        const errorStyle = "color: red; font-weight:bold;";
+        const detailStyle = "color:cornflowerblue;";
+
 
         for (const actor of game.actors) {
             if (actor.type !== 'character' && (actor.type !== 'npc' || !affectsNPCs)) continue;
+            
             let lastUpdate = actor.getFlag(MODULE_ID, LAST_UPDATE_TIME_FLAG_KEY);
             if (lastUpdate === undefined) {
                 await this.initializeNeedsForActor(actor);
@@ -182,44 +207,143 @@ export class NeedsManager {
                 let needsActuallyChangedByTime = false;
 
                 for (const tracker of this.trackerConfigs) {
-                    if ((tracker.increasePerInterval ?? 0) === 0) continue;
-                    const currentValue = actor.getFlag(MODULE_ID, tracker.id) ?? tracker.defaultValue ?? 0;
-                    const changeDueToTime = tracker.increasePerInterval * intervalsPassed;
+                    let effectiveIncreasePerInterval = 0; // Start with 0
+                    const currentFlagForTime = actor.getFlag(MODULE_ID, tracker.id);
+
+                    // Handle base increase for all trackers that might have it
+                    if (typeof tracker.baseIncreasePerInterval === 'number') {
+                        effectiveIncreasePerInterval += tracker.baseIncreasePerInterval;
+                    }
+
+                    // Handle shrine-specific increase for Divine Favor
+                    if (tracker.id === "divineFavor" && tracker.subProperties && Array.isArray(tracker.subProperties)) {
+                        const shrines = currentFlagForTime?.shrines ?? (tracker.subProperties.find(sp => sp.id === 'shrines')?.defaultValue ?? 0);
+                        const increasePerShrine = typeof tracker.increasePerShrinePerInterval === 'number' ? tracker.increasePerShrinePerInterval : 0;
+                        if (shrines > 0) {
+                            effectiveIncreasePerInterval += (increasePerShrine * shrines);
+                        }
+                    } 
+                    // For other trackers, if they don't have baseIncreasePerInterval, use the old increasePerInterval
+                    else if (typeof tracker.increasePerInterval === 'number' && !tracker.baseIncreasePerInterval && tracker.id !== "divineFavor") {
+                        effectiveIncreasePerInterval += tracker.increasePerInterval;
+                    }
+
+
+                    if (effectiveIncreasePerInterval === 0 && !(tracker.id === "divineFavor" && tracker.baseIncreasePerInterval > 0) ) { // If DF has base, it might still run
+                        // Special check for divine favor: if it has a baseIncrease even with 0 shrines, it should run.
+                        // Otherwise, if total effective is 0, skip.
+                        if(!(tracker.id === "divineFavor" && (tracker.baseIncreasePerInterval ?? 0) > 0 && effectiveIncreasePerInterval === (tracker.baseIncreasePerInterval ?? 0) )) {
+                           // console.log(`${logPrefix} Skipping ${tracker.id} for ${actor.name}, effectiveIncrease is 0.`);
+                           continue;
+                        }
+                    }
+
+
+                    let currentValue;
+                    let flagPathForTimeUpdate;
+                    let maxValueForTimeUpdate = tracker.maxValue ?? 100;
+
+                    if (tracker.subProperties && Array.isArray(tracker.subProperties)) {
+                        currentValue = currentFlagForTime?.value ?? tracker.defaultValue ?? 0;
+                        flagPathForTimeUpdate = `${FLAG_PREFIX}.${tracker.id}.value`;
+                        if (tracker.isDynamicMax) {
+                            const shrinesVal = currentFlagForTime?.shrines ?? 0;
+                            const followersVal = currentFlagForTime?.followers ?? 0;
+                            let calcMax = tracker.defaultMaxValue ?? 3;
+                            if (tracker.shrinesPerExtraPoint && tracker.shrinesPerExtraPoint > 0) {
+                                calcMax += Math.floor(shrinesVal / tracker.shrinesPerExtraPoint);
+                            }
+                            if (tracker.followersPerMaxPoint && tracker.followersPerMaxPoint > 0) {
+                                calcMax += Math.floor(followersVal / tracker.followersPerMaxPoint);
+                            }
+                            maxValueForTimeUpdate = calcMax;
+                        } else {
+                           maxValueForTimeUpdate = tracker.maxValue ?? 100;
+                        }
+                    } else {
+                        currentValue = currentFlagForTime ?? tracker.defaultValue ?? 0;
+                        flagPathForTimeUpdate = `${FLAG_PREFIX}.${tracker.id}`;
+                    }
+
+                    const changeDueToTime = effectiveIncreasePerInterval * intervalsPassed;
+                    if (changeDueToTime === 0) continue; // If after all calcs, it's still 0.
+
                     let newValue = currentValue + changeDueToTime;
-                    newValue = Math.clamped(newValue, 0, tracker.maxValue ?? 100);
-                    if (newValue !== currentValue) { actorFlagUpdates[`${FLAG_PREFIX}.${tracker.id}`] = newValue; needsActuallyChangedByTime = true; }
+                    newValue = Math.clamped(newValue, 0, maxValueForTimeUpdate);
+                    
+                    // console.log(`${logPrefix} Actor: ${actor.name}, Tracker: ${tracker.id}, Current: ${currentValue}, ChangeDueToTime: ${changeDueToTime.toFixed(3)}, New(raw): ${(currentValue + changeDueToTime).toFixed(3)}, New(clamped): ${newValue.toFixed(3)}, Max: ${maxValueForTimeUpdate}, EffectiveIntervalIncrease: ${effectiveIncreasePerInterval.toFixed(3)}`);
+
+
+                    if (newValue !== currentValue) {
+                        actorFlagUpdates[flagPathForTimeUpdate] = newValue;
+                        needsActuallyChangedByTime = true;
+                    }
                 }
 
-                if (needsActuallyChangedByTime || actor.getFlag(MODULE_ID, LAST_UPDATE_TIME_FLAG_KEY) !== lastUpdate + (intervalsPassed * updateIntervalSeconds)) {
+                if (needsActuallyChangedByTime) {
                     actorFlagUpdates[`${FLAG_PREFIX}.${LAST_UPDATE_TIME_FLAG_KEY}`] = lastUpdate + (intervalsPassed * updateIntervalSeconds);
                     try {
                         await actor.update(actorFlagUpdates);
-                        processedActorCount++;
                         const cN = this.getActorNeeds(actor);
                         await this.conditionManagerV2.processActorNeedsAndEffects(actor, cN, this.trackerConfigs);
+                    } catch (e) {
+                        console.error(`${logPrefix} Error updating actor ${actor.name} during world time update:`, errorStyle, e);
                     }
-                    catch (e) { console.error(`${logPrefix} Error updating actor ${actor.name}:`, errorStyle, e); }
+                } else if (actor.getFlag(MODULE_ID, LAST_UPDATE_TIME_FLAG_KEY) !== lastUpdate + (intervalsPassed * updateIntervalSeconds)) {
+                     await actor.update({[`${FLAG_PREFIX}.${LAST_UPDATE_TIME_FLAG_KEY}`]: lastUpdate + (intervalsPassed * updateIntervalSeconds)});
                 }
             }
         }
     }
-
+    
     async processLongRest(actor) {
+        // ... (processLongRest content, ensuring dynamic max for divineFavor is checked if it regenerates on long rest) ...
         if (!actor) return;
-        this.loadAllConfigs();
+        this.loadAllConfigs(); 
+
         const actorFlagUpdates = {};
         let needsAffectedByRest = false;
-        const logPrefix = `%c[${MODULE_ID} | NeedsManager | processLongRest | ${actor.name}]`;
-        const detailStyle = "color: dodgerblue;";
 
         for (const tracker of this.trackerConfigs) {
             if (tracker.regeneration?.byLongRest) {
-                const currentValue = actor.getFlag(MODULE_ID, tracker.id) ?? tracker.defaultValue ?? 0;
+                let currentValue;
+                let flagPathForRestUpdate;
+                let maxValueForRest = tracker.maxValue ?? 100;
+                const currentFlagForRest = actor.getFlag(MODULE_ID, tracker.id);
+
+                if (tracker.subProperties && Array.isArray(tracker.subProperties)) {
+                    currentValue = currentFlagForRest?.value ?? tracker.defaultValue ?? 0;
+                    flagPathForRestUpdate = `${FLAG_PREFIX}.${tracker.id}.value`;
+                    if (tracker.isDynamicMax) {
+                         const shrines = currentFlagForRest?.shrines ?? 0;
+                         const followers = currentFlagForRest?.followers ?? 0;
+                         let calcMax = tracker.defaultMaxValue ?? 3;
+                         if (tracker.id === "divineFavor" && tracker.shrinesPerExtraPoint && tracker.shrinesPerExtraPoint > 0) {
+                             calcMax += Math.floor(shrines / tracker.shrinesPerExtraPoint);
+                         }
+                         if (tracker.id === "divineFavor" && tracker.followersPerMaxPoint && tracker.followersPerMaxPoint > 0) {
+                             calcMax += Math.floor(followers / tracker.followersPerMaxPoint);
+                         }
+                         maxValueForRest = calcMax;
+                    } else {
+                        maxValueForRest = tracker.maxValue ?? 100;
+                    }
+                } else {
+                    currentValue = currentFlagForRest ?? tracker.defaultValue ?? 0;
+                    flagPathForRestUpdate = `${FLAG_PREFIX}.${tracker.id}`;
+                }
+                
                 const reduction = tracker.regeneration.longRestAmount ?? 0;
-                const newValue = Math.clamped(currentValue - reduction, 0, tracker.maxValue ?? 100);
-                if (newValue !== currentValue) { actorFlagUpdates[`${FLAG_PREFIX}.${tracker.id}`] = newValue; needsAffectedByRest = true; }
+                if (reduction === 0) continue;
+
+                const newValue = Math.clamped(currentValue - reduction, 0, maxValueForRest);
+                if (newValue !== currentValue) {
+                    actorFlagUpdates[flagPathForRestUpdate] = newValue;
+                    needsAffectedByRest = true;
+                }
             }
         }
+
         if (needsAffectedByRest) {
             actorFlagUpdates[`${FLAG_PREFIX}.${LAST_UPDATE_TIME_FLAG_KEY}`] = game.time.worldTime;
             await actor.update(actorFlagUpdates);
@@ -229,55 +353,101 @@ export class NeedsManager {
         }
     }
 
-    async updateNeedValue(actor, trackerId, newTrackerValue, options = {}) {
+    async updateNeedValue(actor, trackerId, newTrackerValueStr, options = {}) {
+        // ... (updateNeedValue content, with existing dynamic max calculation for divineFavor being crucial) ...
         const logPrefix = `%c[${MODULE_ID} | NeedsManager | updateNeedValue | ${actor?.name || 'UnknownActor'}]`;
-        const detailStyle = "color: dodgerblue;";
+        const detailStyle = "color: dodgerblue; font-weight: bold;";
+        const errorStyle = "color: red; font-weight: bold;";
         const warningStyle = "color: orange;";
 
-        if (!actor || !trackerId) { return; }
-        this.loadAllConfigs();
+        if (!actor || !trackerId) {
+            console.warn(`${logPrefix} Actor or trackerId missing. Aborting.`, warningStyle);
+            return;
+        }
+        this.loadAllConfigs(); 
 
         const mainTracker = this.trackerConfigs.find(t => t.id === trackerId);
-        if (!mainTracker) { return; }
+        if (!mainTracker) {
+            console.warn(`${logPrefix} Tracker config for ID '${trackerId}' not found. Aborting.`, warningStyle);
+            return;
+        }
 
-        const currentMainValue = actor.getFlag(MODULE_ID, mainTracker.id) ?? mainTracker.defaultValue ?? 0;
-        const clampedNewMainValue = Math.clamped(Number(newTrackerValue) || 0, 0, mainTracker.maxValue ?? 100);
+        let currentMainValue;
+        let actualMaxValue = mainTracker.maxValue ?? 100;
+        const flagPathForUpdate = mainTracker.subProperties ? `${FLAG_PREFIX}.${mainTracker.id}.value` : `${FLAG_PREFIX}.${mainTracker.id}`;
+        
+        const currentFlagObject = actor.getFlag(MODULE_ID, mainTracker.id);
+
+        if (mainTracker.subProperties && Array.isArray(mainTracker.subProperties)) {
+            currentMainValue = currentFlagObject?.value ?? mainTracker.defaultValue ?? 0;
+            if (mainTracker.isDynamicMax) {
+                const shrines = currentFlagObject?.shrines ?? 0;
+                const followers = currentFlagObject?.followers ?? 0;
+                let calcMax = mainTracker.defaultMaxValue ?? 3;
+                if (trackerId === "divineFavor" && mainTracker.shrinesPerExtraPoint && mainTracker.shrinesPerExtraPoint > 0) {
+                    calcMax += Math.floor(shrines / mainTracker.shrinesPerExtraPoint);
+                }
+                if (trackerId === "divineFavor" && mainTracker.followersPerMaxPoint && mainTracker.followersPerMaxPoint > 0) {
+                    calcMax += Math.floor(followers / mainTracker.followersPerMaxPoint);
+                }
+                actualMaxValue = calcMax;
+            } else {
+                actualMaxValue = mainTracker.maxValue ?? 100;
+            }
+        } else {
+            currentMainValue = currentFlagObject ?? mainTracker.defaultValue ?? 0;
+        }
+        
+        const newTrackerValueNum = Number(newTrackerValueStr);
+        if (isNaN(newTrackerValueNum)) {
+            console.warn(`${logPrefix} newTrackerValueStr "${newTrackerValueStr}" is not a valid number. Aborting.`, warningStyle);
+            return;
+        }
+
+        const clampedNewMainValue = Math.clamped(newTrackerValueNum, 0, actualMaxValue);
+
         const updates = {};
+        let needsChanged = false;
 
         if (clampedNewMainValue !== currentMainValue) {
-            updates[`${FLAG_PREFIX}.${mainTracker.id}`] = clampedNewMainValue;
+            updates[flagPathForUpdate] = clampedNewMainValue;
+            needsChanged = true;
+            
             if (clampedNewMainValue < currentMainValue && options.triggeredByConsumption) {
+                // ... (inter-tracker logic remains same) ...
                 const amountDecreased = currentMainValue - clampedNewMainValue;
                 this.interTrackerLinks.forEach((linkConfig, targetTrId) => {
                     if (linkConfig.sourceTrackerId === mainTracker.id) {
                         const linkedTCfg = this.trackerConfigs.find(t => t.id === targetTrId);
-                        if (linkedTCfg) { }
+                        if (linkedTCfg) {
+                            const currentLinkedVal = actor.getFlag(MODULE_ID, targetTrId) ?? linkedTCfg.defaultValue ?? 0;
+                            const increaseAmount = Math.round(amountDecreased * (linkConfig.percentage / 100));
+                            const newLinkedVal = Math.clamped(currentLinkedVal + increaseAmount, 0, linkedTCfg.maxValue ?? 100);
+                            if (newLinkedVal !== currentLinkedVal) {
+                                updates[`${FLAG_PREFIX}.${targetTrId}`] = newLinkedVal;
+                            }
+                        }
                     }
                 });
             }
         }
 
-        if (Object.keys(updates).length > 0) {
+        if (Object.keys(updates).length > 0 || (options.forceEffectUpdate && !needsChanged)) {
             await actor.update(updates);
-            const cN = this.getActorNeeds(actor);
-            await this.conditionManagerV2.processActorNeedsAndEffects(actor, cN, this.trackerConfigs);
-        } else if (options.forceEffectUpdate) {
             const cN = this.getActorNeeds(actor);
             await this.conditionManagerV2.processActorNeedsAndEffects(actor, cN, this.trackerConfigs);
         }
     }
 
+    // ... (processDetailedConsumption, relieveWaste, dryOff, relieveBoredomOrStress, handleRestChoice methods remain largely the same) ...
     async processDetailedConsumption(actor, consumptionData) {
-        const logPrefix = `%c[${MODULE_ID} | NeedsManager | processDetailedConsumption | ${actor.name} | V1.8_MergedFix]`;
+        // ... (content remains the same)
+        const logPrefix = `%c[${MODULE_ID} | NeedsManager | processDetailedConsumption | ${actor.name} | V1.9_ComplexAwarePre]`;
         const detailStyle = "color: teal;";
-        console.log(`${logPrefix} Processing:`, detailStyle, foundry.utils.deepClone(consumptionData));
 
-        this.loadAllConfigs();
+        this.loadAllConfigs(); 
 
         const calcSettings = this.consumptionCalcSettings;
-        const STANDARD_FOOD_USE_EFFECTIVE_BULK = calcSettings.STANDARD_FOOD_USE_EFFECTIVE_BULK || 0.02;
-        const STANDARD_DRINK_USE_EFFECTIVE_BULK = calcSettings.STANDARD_DRINK_USE_EFFECTIVE_BULK || 0.02;
-
         const hungerTrackerConfig = this.trackerConfigs.find(t => t.id === "hunger");
         const thirstTrackerConfig = this.trackerConfigs.find(t => t.id === "thirst");
         const pissTrackerConfig = this.trackerConfigs.find(t => t.id === "piss");
@@ -285,36 +455,27 @@ export class NeedsManager {
         const boredomTrackerConfig = this.trackerConfigs.find(t => t.id === "boredom");
         const stressTrackerConfig = this.trackerConfigs.find(t => t.id === "stress");
 
-        const BASE_HUNGER_RESTORE_PER_STANDARD_USE =
-            calcSettings.DEFAULT_HUNGER_RESTORE_PER_STANDARD_USE ??
-            (hungerTrackerConfig?.regeneration?.itemRestoreAmount || 3.33);
-
-        const BASE_THIRST_RESTORE_PER_STANDARD_USE =
-            calcSettings.DEFAULT_THIRST_RESTORE_PER_STANDARD_USE ??
-            (thirstTrackerConfig?.regeneration?.itemRestoreAmount || 20);
+        const BASE_HUNGER_RESTORE_PER_STANDARD_USE = calcSettings.DEFAULT_HUNGER_RESTORE_PER_STANDARD_USE ?? (hungerTrackerConfig?.regeneration?.itemRestoreAmount || 3.33);
+        const BASE_THIRST_RESTORE_PER_STANDARD_USE = calcSettings.DEFAULT_THIRST_RESTORE_PER_STANDARD_USE ?? (thirstTrackerConfig?.regeneration?.itemRestoreAmount || 20);
+        const STANDARD_FOOD_USE_EFFECTIVE_BULK = calcSettings.STANDARD_FOOD_USE_EFFECTIVE_BULK || 0.02;
+        const STANDARD_DRINK_USE_EFFECTIVE_BULK = calcSettings.STANDARD_DRINK_USE_EFFECTIVE_BULK || 0.02;
 
         let hungerActualReduction = 0;
         let thirstActualReduction = 0;
-        let boredomChangeFinal = 0;
-        let stressChangeFinal = 0;
-        let actualPissIncrease = 0;
-        let actualPoopIncrease = 0;
         let calculatedPoopIncrease = 0;
         let calculatedPissIncrease = 0;
-
         const updates = {};
         const chatMessageParts = [`<div class="pf2e-rules-based-effects survival-needs-chat-card">`];
         chatMessageParts.push(`<div class="card-header" style="display: flex; align-items: center; margin-bottom: 0.5em;"><img src="${consumptionData.itemIcon || 'icons/svg/mystery-man.svg'}" title="${consumptionData.itemName}" width="36" height="36" style="margin-right: 8px; border:none; flex-shrink:0;"/><h3 style="margin:0;">${actor.name} consumed <strong>${consumptionData.itemName}</strong>.</h3></div>`);
         const chosenOptionsForChat = [];
         const effectsOnNeeds = [];
-
         let calculatedHungerReduction = 0;
         let calculatedThirstReduction = 0;
         let tempBoredomChange = 0;
         let tempStressChange = 0;
 
         if (consumptionData.isStandard) {
-            if (consumptionData.originalTrackerId === "hunger") {
+             if (consumptionData.originalTrackerId === "hunger") {
                 calculatedHungerReduction = BASE_HUNGER_RESTORE_PER_STANDARD_USE;
                 if (consumptionData.taste === "boring") tempBoredomChange += (calcSettings.TASTE_BOREDOM?.boring ?? 20);
                 chosenOptionsForChat.push(`<em>Standard Ration: Medium Caloric, Boring Taste</em>`);
@@ -327,13 +488,13 @@ export class NeedsManager {
             if (consumptionData.originalTrackerId === "hunger" || (consumptionData.drinkCaloric && consumptionData.drinkCaloric !== "none")) {
                 const effectivenessFactor = itemEffectiveBulk / STANDARD_FOOD_USE_EFFECTIVE_BULK;
                 let baseCalcHunger = effectivenessFactor * BASE_HUNGER_RESTORE_PER_STANDARD_USE;
-                if (consumptionData.originalTrackerId === "thirst") {
+                if (consumptionData.originalTrackerId === "thirst") { 
                     baseCalcHunger *= (calcSettings.DRINK_CALORIC_MODIFIERS?.[consumptionData.drinkCaloric] ?? 0);
                     if (consumptionData.drinkCaloric && consumptionData.drinkCaloric !== "none") {
                         const locKey = "SURVIVAL_NEEDS.choices.drink.caloric" + consumptionData.drinkCaloric.charAt(0).toUpperCase() + consumptionData.drinkCaloric.slice(1);
                         chosenOptionsForChat.push(`Drink Caloric: ${game.i18n.localize(locKey) || consumptionData.drinkCaloric}`);
                     }
-                } else {
+                } else { 
                     if (consumptionData.caloricType) {
                         baseCalcHunger *= (calcSettings.CALORIC_MODIFIERS?.[consumptionData.caloricType] ?? 1.0);
                         const locKey = "SURVIVAL_NEEDS.choices.food." + consumptionData.caloricType.replace("Caloric", "").toLowerCase() + "Caloric";
@@ -366,66 +527,64 @@ export class NeedsManager {
             }
         }
 
+        const actorCurrentNeeds = this.getActorNeeds(actor);
+
         if (calculatedHungerReduction > 0 && hungerTrackerConfig) {
-            const current = actor.getFlag(MODULE_ID, "hunger") ?? hungerTrackerConfig.defaultValue ?? 0;
+            const current = actorCurrentNeeds.hunger; 
             const newValue = Math.clamped(current - calculatedHungerReduction, 0, hungerTrackerConfig.maxValue ?? 100);
             if (newValue !== current) updates[`${FLAG_PREFIX}.hunger`] = newValue;
             hungerActualReduction = current - newValue;
             if (hungerActualReduction > 0) {
-                const iconHtml = `<i class="${hungerTrackerConfig.iconClass}" style="color:${hungerTrackerConfig.iconColor}; margin-right: 3px;"></i>`;
-                effectsOnNeeds.push(`${iconHtml}Hunger reduced by ${hungerActualReduction} (to ${newValue}). ${newValue === 0 ? game.i18n.localize("SURVIVAL_NEEDS.chat.notHungryAnymore") : game.i18n.localize("SURVIVAL_NEEDS.chat.stillHungry")}`);
+                effectsOnNeeds.push(`<i class="${hungerTrackerConfig.iconClass}" style="color:${hungerTrackerConfig.iconColor};"></i> Hunger -${hungerActualReduction} (to ${newValue}).`);
                 calculatedPoopIncrease = Math.round(hungerActualReduction * (calcSettings.HUNGER_TO_POOP_MULTIPLIER ?? 6.0));
             }
         }
 
         if (calculatedThirstReduction > 0 && thirstTrackerConfig) {
-            const current = actor.getFlag(MODULE_ID, "thirst") ?? thirstTrackerConfig.defaultValue ?? 0;
+            const current = actorCurrentNeeds.thirst; 
             const newValue = Math.clamped(current - calculatedThirstReduction, 0, thirstTrackerConfig.maxValue ?? 100);
             if (newValue !== current) updates[`${FLAG_PREFIX}.thirst`] = newValue;
             thirstActualReduction = current - newValue;
             if (thirstActualReduction > 0) {
-                const iconHtml = `<i class="${thirstTrackerConfig.iconClass}" style="color:${thirstTrackerConfig.iconColor}; margin-right: 3px;"></i>`;
-                effectsOnNeeds.push(`${iconHtml}Thirst reduced by ${thirstActualReduction} (to ${newValue}). ${newValue === 0 ? game.i18n.localize("SURVIVAL_NEEDS.chat.notThirstyAnymore") : game.i18n.localize("SURVIVAL_NEEDS.chat.stillThirsty")}`);
+                effectsOnNeeds.push(`<i class="${thirstTrackerConfig.iconClass}" style="color:${thirstTrackerConfig.iconColor};"></i> Thirst -${thirstActualReduction} (to ${newValue}).`);
                 calculatedPissIncrease = Math.round(thirstActualReduction * (calcSettings.THIRST_TO_PISS_MULTIPLIER ?? 2.0));
             }
         }
+        let actualPissIncrease = 0;
+        let actualPoopIncrease = 0;
+        let boredomChangeFinal = 0;
+        let stressChangeFinal = 0;
 
         if (calculatedPissIncrease > 0 && pissTrackerConfig) {
-            const currentPiss = actor.getFlag(MODULE_ID, "piss") ?? pissTrackerConfig.defaultValue ?? 0;
+            const currentPiss = actorCurrentNeeds.piss;
             const newPiss = Math.clamped(currentPiss + calculatedPissIncrease, 0, pissTrackerConfig.maxValue ?? 100);
             if (newPiss !== currentPiss) updates[`${FLAG_PREFIX}.piss`] = newPiss;
             actualPissIncrease = newPiss - currentPiss;
-            if (actualPissIncrease > 0) effectsOnNeeds.push(`<i class="${pissTrackerConfig.iconClass}" style="color:${pissTrackerConfig.iconColor}; margin-right: 3px;"></i>Bladder filled by ${actualPissIncrease} (to ${newPiss}).`);
+            if(actualPissIncrease > 0) effectsOnNeeds.push(`<i class="${pissTrackerConfig.iconClass}" style="color:${pissTrackerConfig.iconColor};"></i> Bladder +${actualPissIncrease} (to ${newPiss}).`);
         }
 
         if (calculatedPoopIncrease > 0 && poopTrackerConfig) {
-            const currentPoop = actor.getFlag(MODULE_ID, "poop") ?? poopTrackerConfig.defaultValue ?? 0;
+            const currentPoop = actorCurrentNeeds.poop;
             const newPoop = Math.clamped(currentPoop + calculatedPoopIncrease, 0, poopTrackerConfig.maxValue ?? 100);
             if (newPoop !== currentPoop) updates[`${FLAG_PREFIX}.poop`] = newPoop;
             actualPoopIncrease = newPoop - currentPoop;
-            if (actualPoopIncrease > 0) effectsOnNeeds.push(`<i class="${poopTrackerConfig.iconClass}" style="color:${poopTrackerConfig.iconColor}; margin-right: 3px;"></i>Bowels filled by ${actualPoopIncrease} (to ${newPoop}).`);
+            if(actualPoopIncrease > 0) effectsOnNeeds.push(`<i class="${poopTrackerConfig.iconClass}" style="color:${poopTrackerConfig.iconColor};"></i> Bowels +${actualPoopIncrease} (to ${newPoop}).`);
         }
 
         if (tempBoredomChange !== 0 && boredomTrackerConfig) {
-            const current = actor.getFlag(MODULE_ID, "boredom") ?? boredomTrackerConfig.defaultValue ?? 0;
+            const current = actorCurrentNeeds.boredom;
             const newValue = Math.clamped(current + tempBoredomChange, 0, boredomTrackerConfig.maxValue ?? 100);
             if (newValue !== current) updates[`${FLAG_PREFIX}.boredom`] = newValue;
             boredomChangeFinal = newValue - current;
-            if (boredomChangeFinal !== 0) {
-                const verb = boredomChangeFinal < 0 ? "reduced" : "increased";
-                effectsOnNeeds.push(`<i class="${boredomTrackerConfig.iconClass}" style="color:${boredomTrackerConfig.iconColor}; margin-right: 3px;"></i>Boredom ${verb} by ${Math.abs(boredomChangeFinal)} (to ${newValue}).`);
-            }
+            if(boredomChangeFinal !== 0) effectsOnNeeds.push(`<i class="${boredomTrackerConfig.iconClass}" style="color:${boredomTrackerConfig.iconColor};"></i> Boredom ${boredomChangeFinal > 0 ? '+' : ''}${boredomChangeFinal} (to ${newValue}).`);
         }
 
         if (tempStressChange !== 0 && stressTrackerConfig) {
-            const current = actor.getFlag(MODULE_ID, "stress") ?? stressTrackerConfig.defaultValue ?? 0;
+            const current = actorCurrentNeeds.stress;
             const newValue = Math.clamped(current + tempStressChange, 0, stressTrackerConfig.maxValue ?? 100);
             if (newValue !== current) updates[`${FLAG_PREFIX}.stress`] = newValue;
             stressChangeFinal = newValue - current;
-            if (stressChangeFinal !== 0) {
-                const verb = stressChangeFinal < 0 ? "reduced" : "increased";
-                effectsOnNeeds.push(`<i class="${stressTrackerConfig.iconClass}" style="color:${stressTrackerConfig.iconColor}; margin-right: 3px;"></i>Stress ${verb} by ${Math.abs(stressChangeFinal)} (to ${newValue}).`);
-            }
+            if(stressChangeFinal !== 0) effectsOnNeeds.push(`<i class="${stressTrackerConfig.iconClass}" style="color:${stressTrackerConfig.iconColor};"></i> Stress ${stressChangeFinal > 0 ? '+' : ''}${stressChangeFinal} (to ${newValue}).`);
         }
 
         if (effectsOnNeeds.length > 0) {
@@ -433,64 +592,78 @@ export class NeedsManager {
         } else {
             chatMessageParts.push(`<p>No significant change in needs from this consumption.</p>`);
         }
-
         if (chosenOptionsForChat.length > 0) {
             chatMessageParts.push(`<hr style="border-top: 1px dashed #ccc; margin: 0.5em 0;"><em>Item Properties/Choices: ${chosenOptionsForChat.join(', ')}</em>`);
         }
         chatMessageParts.push(`</div>`);
 
-
         if (Object.keys(updates).length > 0) {
             await actor.update(updates);
         }
 
-        const currentNeedsAfterUpdate = this.getActorNeeds(actor);
+        const currentNeedsAfterUpdate = this.getActorNeeds(actor); 
         await this.conditionManagerV2.processActorNeedsAndEffects(actor, currentNeedsAfterUpdate, this.trackerConfigs);
 
         ChatMessage.create({
             speaker: ChatMessage.getSpeaker({ actor: actor }),
-            content: chatMessageParts.join("<br>")
+            content: chatMessageParts.join("") 
         });
-        console.log(`${logPrefix} Detailed consumption processing complete.`, detailStyle);
     }
 
-        async relieveWaste(actor, trackerId, actionConfig) {
+    async relieveWaste(actor, trackerId, actionConfig) { 
         if (!actor || !trackerId || !actionConfig) return;
-        const message = actionConfig.chatMessage?.replace("{actorName}", actor.name) + 
-                        (actionConfig.timeMinutes ? ` (Takes ${actionConfig.timeMinutes} minutes).` : "");
+        const message = actionConfig.chatMessage?.replace("{actorName}", actor.name) +
+            (actionConfig.timeMinutes ? ` (Takes ${actionConfig.timeMinutes} minutes).` : "");
         if (message) ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: message });
         
-        await this.updateNeedValue(actor, trackerId, actionConfig.reducesTo ?? 0, { forceEffectUpdate: true });
-        ui.notifications.info(`${actor.name} ${trackerId === "piss" ? "urinated" : "defecated"} and feels relieved.`);
+        await this.updateNeedValue(actor, trackerId, (actionConfig.reducesTo ?? 0).toString(), { forceEffectUpdate: true });
+        ui.notifications.info(`${actor.name} feels relieved.`);
     }
-
-    async dryOff(actor, actionConfig) {
+    
+    async dryOff(actor, actionConfig) { 
         if (!actor || !actionConfig) return;
         const message = actionConfig.chatMessage?.replace("{actorName}", actor.name) +
-                        (actionConfig.timeMinutes ? ` (Takes ${actionConfig.timeMinutes} minutes).` : "");
+            (actionConfig.timeMinutes ? ` (Takes ${actionConfig.timeMinutes} minutes).` : "");
         if (message) ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: message });
-
-        await this.updateNeedValue(actor, "wetness", actionConfig.reducesTo ?? 0, { forceEffectUpdate: true });
+        
+        await this.updateNeedValue(actor, "wetness", (actionConfig.reducesTo ?? 0).toString(), { forceEffectUpdate: true });
         ui.notifications.info(`${actor.name} is now dry.`);
     }
 
-
     async relieveBoredomOrStress(actor, trackerId, choiceConfig) {
         if (!actor || !trackerId || !choiceConfig) return;
-        const logPrefix = `%c[${MODULE_ID} | NeedsManager | relieveBoredomOrStress | ${actor.name}]`;
-        const detailStyle = "color: mediumpurple;";
+        this.loadAllConfigs(); 
 
-        console.log(`${logPrefix} Action for ${trackerId} with choice '${choiceConfig.label}'.`, detailStyle, choiceConfig);
+        const tracker = this.trackerConfigs.find(t => t.id === trackerId);
+        if (!tracker) return;
 
-        const currentTrackerValue = actor.getFlag(MODULE_ID, trackerId) ?? 0;
+        const currentTrackerValue = actor.getFlag(MODULE_ID, trackerId) ?? tracker.defaultValue ?? 0;
         const reduction = choiceConfig.reducesBy ?? 0;
-        const newValue = Math.max(0, currentTrackerValue - reduction);
+        const newValue = Math.clamped(currentTrackerValue - reduction, 0, tracker.maxValue ?? 100);
 
         const message = choiceConfig.chatMessage?.replace("{actorName}", actor.name) +
-            (choiceConfig.timeMinutes ? ` (Takes ${choiceConfig.timeMinutes} minutes).` : "");
+            (actionConfig.timeMinutes ? ` (Takes ${choiceConfig.timeMinutes} minutes).` : "");
         if (message) ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: message });
 
-        await this.updateNeedValue(actor, trackerId, newValue, { forceEffectUpdate: true });
+        await this.updateNeedValue(actor, trackerId, newValue.toString(), { forceEffectUpdate: true });
+
+        if (typeof choiceConfig.stressChange === 'number' && choiceConfig.stressChange !== 0) {
+            const stressTracker = this.trackerConfigs.find(t => t.id === "stress");
+            if (stressTracker) {
+                const currentStress = actor.getFlag(MODULE_ID, "stress") ?? stressTracker.defaultValue ?? 0;
+                const newStress = Math.clamped(currentStress + choiceConfig.stressChange, 0, stressTracker.maxValue ?? 100);
+                await this.updateNeedValue(actor, "stress", newStress.toString(), { forceEffectUpdate: false });
+            }
+        }
+        if (typeof choiceConfig.boredomChange === 'number' && choiceConfig.boredomChange !== 0) {
+            const boredomTracker = this.trackerConfigs.find(t => t.id === "boredom");
+            if (boredomTracker) {
+                const currentBoredom = actor.getFlag(MODULE_ID, "boredom") ?? boredomTracker.defaultValue ?? 0;
+                const newBoredom = Math.clamped(currentBoredom + choiceConfig.boredomChange, 0, boredomTracker.maxValue ?? 100);
+                await this.updateNeedValue(actor, "boredom", newBoredom.toString(), { forceEffectUpdate: false });
+            }
+        }
+        
         ui.notifications.info(`${actor.name} feels less ${trackerId}.`);
     }
 
@@ -499,49 +672,38 @@ export class NeedsManager {
             console.warn(`%c[${MODULE_ID}] NeedsManager: Invalid call to handleRestChoice.`, "color:orange;");
             return;
         }
+        this.loadAllConfigs(); 
+
+        const sleepTracker = this.trackerConfigs.find(t => t.id === "sleep");
+        if (!sleepTracker) return;
+
         const logPrefix = `%c[${MODULE_ID}] NeedsManager | handleRestChoice | ${actor.name}]`;
         const detailStyle = "color: mediumpurple;";
-        const warningStyle = "color: orange; font-weight:bold;";
         const errorStyle = "color: red; font-weight:bold;";
 
-        console.log(`${logPrefix} Processing rest choice '${choiceConfig.id}':`, detailStyle, choiceConfig);
-
-        const timeInHours = choiceConfig.timeMinutes ? Math.round(choiceConfig.timeMinutes / 60 * 10) / 10 : null;
-        const timeString = timeInHours ? ` (Takes approx. ${timeInHours} hours).` :
-            (choiceConfig.timeMinutes ? ` (Takes ${choiceConfig.timeMinutes} minutes).` : "");
-
+        const timeString = choiceConfig.timeMinutes ? ` (Takes ${choiceConfig.timeMinutes} minutes).` : "";
         const messageContent = choiceConfig.chatMessage?.replace("{actorName}", actor.name) + timeString;
         if (choiceConfig.chatMessage) {
             ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content: messageContent });
         }
 
         if (choiceConfig.triggersLongRest) {
-            console.log(`${logPrefix} Choice '${choiceConfig.id}' triggers a full long rest. Attempting to initiate via game.pf2e.actions.restForTheNight...`, detailStyle);
-
             if (actor.type === 'character') {
                 try {
                     ui.notifications.info(game.i18n.format("PF2E.RestNotification", { actor: actor.name }));
-
                     await game.pf2e.actions.restForTheNight({ actors: [actor] });
-
-                    console.log(`${logPrefix} game.pf2e.actions.restForTheNight() called for ${actor.name}.`, detailStyle);
                 } catch (err) {
                     console.error(`${logPrefix} Error calling game.pf2e.actions.restForTheNight():`, errorStyle, err);
                     ui.notifications.error(`Failed to initiate long rest for ${actor.name}. See console.`);
                 }
-            } else {
-                console.warn(`${logPrefix} 'triggersLongRest' used for non-character actor type '${actor.type}'. Standard long rest via system action may not apply or behave as expected.`, warningStyle);
             }
-
         } else if (choiceConfig.reducesBy !== undefined) {
-            const currentSleepDep = actor.getFlag(MODULE_ID, "sleep") ?? 0;
+            const currentSleepDep = actor.getFlag(MODULE_ID, "sleep") ?? sleepTracker.defaultValue ?? 0;
             const reduction = choiceConfig.reducesBy ?? 0;
-            const newSleepDep = Math.max(0, currentSleepDep - reduction);
-            console.log(`${logPrefix} Choice '${choiceConfig.id}' reduces sleep dep by ${reduction} from ${currentSleepDep} to ${newSleepDep}.`, detailStyle);
-            await this.updateNeedValue(actor, "sleep", newSleepDep, { forceEffectUpdate: true });
+            const newSleepDep = Math.clamped(currentSleepDep - reduction, 0, sleepTracker.maxValue ?? 100);
+            
+            await this.updateNeedValue(actor, "sleep", newSleepDep.toString(), { forceEffectUpdate: true });
             ui.notifications.info(`${actor.name} feels more rested after their ${choiceConfig.label.toLowerCase()}.`);
-        } else {
-            console.warn(`${logPrefix} Sleep choice '${choiceConfig.id}' has no 'triggersLongRest' or 'reducesBy'. No specific rest action taken.`, warningStyle);
         }
     }
 }

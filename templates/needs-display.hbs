@@ -1,48 +1,68 @@
-<!-- File: templates/needs-display.hbs -->
+<!-- File: modules/survival-needs-pf2e/templates/needs-display.hbs -->
 <div class="survival-needs-display {{moduleId}}">
+    <h4>{{localize "survival-needs-pf2e.sheet.title"}}</h4>
     {{#if trackers.length}}
-        {{#each trackers as |trackerConfig|}} {{!-- Changed 'tracker' to 'trackerConfig' for clarity --}}
-            <div class="need-item {{trackerConfig.id}}">
-                <label title="{{trackerConfig.name}}">
-                    <i class="tracker-icon {{trackerConfig.iconClass}}" style="color:{{trackerConfig.iconColor}};"></i> 
-                     {{trackerConfig.name}} {{!-- Removed one   for slightly less space --}}
+        <ul class="needs-list">
+        {{#each trackers as |tracker|}}
+            <li class="need-item {{#if tracker.subProperties}}has-sub-properties{{/if}}" data-tracker-id="{{tracker.id}}">
+                <label for="actor-{{../actorId}}-need-{{tracker.id}}" class="need-label">
+                    <i class="{{tracker.iconClass}} tracker-icon" style="color:{{tracker.iconColor}};" title="{{tracker.name}}"></i>
+                    {{tracker.name}}
                 </label>
                 <div class="need-controls">
-                    <input class="tracker-value-input" 
-                           type="number" 
-                           name="{{trackerConfig.flagPath}}" 
-                           value="{{trackerConfig.currentValue}}" 
-                           min="0" 
-                           max="{{trackerConfig.maxValue}}" 
-                           data-tracker-id="{{trackerConfig.id}}" />
-                    <span class="need-max-value">/ {{trackerConfig.maxValue}}</span>
-                    
-                    {{#if trackerConfig.regeneration.byItem}}
-                        <button type="button" 
-                                class="consume-button icon-only-button" {{!-- Added icon-only-button for consistent styling --}}
-                                data-tracker-id="{{trackerConfig.id}}" 
-                                title="{{trackerConfig.regeneration.itemButtonLabel}}">
-                            <i class="{{trackerConfig.regeneration.itemButtonIcon}}"></i>
-                        </button>
+                    <input type="number" name="{{tracker.flagPath}}" 
+                           data-tracker-id="{{tracker.id}}" value="{{tracker.currentValue}}" 
+                           class="tracker-value-input" />
+                    {{#if tracker.isDynamicMax}}
+                        <span class="need-max-value">/ {{tracker.currentMaxValue}}</span>
+                    {{else if tracker.displayMaxValue}}
+                         <span class="need-max-value">/ {{tracker.displayMaxValue}}</span>
                     {{/if}}
 
-                    {{#if trackerConfig.specialActions}}
-                        {{#each trackerConfig.specialActions as |action|}}
-                            <button type="button" 
-                                    class="special-action-button icon-only-button" 
-                                    data-tracker-id="{{trackerConfig.id}}" {{!-- Correct: Access parent context's id --}}
-                                    data-action-id="{{action.actionId}}"
-                                    title="{{action.label}}"> 
-                                <i class="{{action.icon}}"></i>
-                            </button>
-                        {{/each}}
+                    {{#if tracker.regeneration.byItem}}
+                    <button type="button" class="consume-button icon-only-button" data-tracker-id="{{tracker.id}}" title="{{tracker.regeneration.itemButtonLabel}}">
+                        <i class="{{tracker.regeneration.itemButtonIcon}}"></i>
+                    </button>
                     {{/if}}
+                    {{#each tracker.specialActions as |action|}}
+                    <button type="button" class="special-action-button icon-only-button" data-tracker-id="{{tracker.id}}" data-action-id="{{action.actionId}}" title="{{action.label}}">
+                        <i class="{{action.icon}}"></i>
+                    </button>
+                    {{/each}}
                 </div>
-            </div>
+            </li>
+            {{#if tracker.subProperties}}
+                {{#each tracker.subProperties as |subProp|}}
+                <li class="need-item sub-property" data-tracker-id="{{tracker.id}}" data-subproperty-id="{{subProp.id}}">
+                    <label for="actor-{{../../actorId}}-need-{{tracker.id}}-{{subProp.id}}" class="need-label">
+                        <i class="{{sn_default subProp.iconClass 'fas fa-genderless'}} tracker-icon" style="color:{{sn_default subProp.iconColor '#7a7971'}};" title="{{subProp.label}}"></i>
+                        {{subProp.label}}
+                    </label>
+                    <div class="need-controls">
+                        <input type="number" name="{{subProp.flagPath}}" 
+                               data-tracker-id="{{tracker.id}}" data-subproperty-id="{{subProp.id}}"
+                               value="{{subProp.currentValue}}" class="tracker-value-input tracker-subproperty-input" />
+                    </div>
+                </li>
+                {{/each}}
+            {{/if}}
+
+            {{!-- Display Calculated Weekly Increase for Divine Favor --}}
+            {{#if tracker.calculatedWeeklyIncrease}}
+            <li class="need-item sub-property weekly-increase-display"> {{!-- Re-use sub-property for indent --}}
+                <label class="need-label">
+                    <i class="fas fa-calendar-week tracker-icon" style="color:{{tracker.iconColor}};" title="Weekly Gain"></i>
+                    Weekly Gain
+                </label>
+                <div class="need-controls">
+                    <span class="weekly-increase-value">+{{tracker.calculatedWeeklyIncrease}}</span>
+                </div>
+            </li>
+            {{/if}}
+
         {{/each}}
+        </ul>
     {{else}}
-        {{!-- This 'else' corresponds to 'if trackers.length'. 
-             The 'unless trackers' further down was redundant. --}}
-        <p class="no-trackers-message">{{localize (concat moduleId ".sheet.noTrackersEnabled")}}</p>
+        <p class="no-trackers-message">{{localize "survival-needs-pf2e.sheet.noTrackersEnabled"}}</p>
     {{/if}}
 </div>

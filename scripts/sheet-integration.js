@@ -1,115 +1,219 @@
 // File: scripts/sheet-integration.js
-
-import { MODULE_ID, FLAG_PREFIX, DEFAULT_TRACKER_CONFIGS } from "./constants.js"; // Assuming DEFAULT_TRACKER_CONFIGS is for fallback in onRenderCharacterSheet
+import { MODULE_ID, FLAG_PREFIX, SETTINGS } from "./constants.js"; // Added SETTINGS
 
 export class SheetIntegration {
     constructor(needsManagerInstance) {
         this.needsManager = needsManagerInstance;
-        const logPrefix = `%c[${MODULE_ID} | SheetIntegration]`;
+        const logPrefix = `%c[${MODULE_ID} | SheetIntegration | Constructor]`;
         const constructorStyle = "color: olive; font-weight:bold;";
-        
-        if (!this.needsManager || typeof this.needsManager.loadAllConfigs !== 'function') {
-            console.error(`${logPrefix} CRITICAL: Invalid NeedsManager instance passed to constructor! SheetIntegration may not work.`, "color:red;", needsManagerInstance);
-            this.needsManager = null; 
-        } else {
-            console.log(`${logPrefix} Constructed with NeedsManager. Version: Full_Corrected_V1.3`, constructorStyle);
-        }
-    }
-
-    /**
-     * Called when a CharacterSheetPF2e is rendered.
-     * Injects the survival needs display into the sheet and binds events.
-     */
-    async onRenderCharacterSheet(app, html, actorData) {
-        const actor = app.actor; 
-        const logPrefixFunc = (actorName) => `%c[${MODULE_ID} | SheetIntegration | ${actorName || 'UnknownActor'} | Render]`;
-        const warningStyle = "color:orange; font-weight:bold;";
-        const detailStyle = "color: olive;";
         const errorStyle = "color:red; font-weight:bold;";
 
-        if (!actor || actor.type !== "character") return; 
-        if (!html || html.length === 0) return;
-
         if (!this.needsManager || typeof this.needsManager.loadAllConfigs !== 'function') {
-            console.error(logPrefixFunc(actor.name) + " CRITICAL: NeedsManager instance is not available in onRenderCharacterSheet. Aborting.", errorStyle);
+            console.error(`${logPrefix} CRITICAL: Invalid NeedsManager instance! SheetIntegration may not work. NeedsManager:`, errorStyle, needsManagerInstance);
+            this.needsManager = null;
+            return;
+        }
+        // console.log(`${logPrefix} Constructed successfully with NeedsManager.`, constructorStyle);
+    }
+
+    async onRenderCharacterSheet(app, html, actorData) {
+        const actor = app.actor;
+        const logPrefixFunc = (actorName) => `%c[${MODULE_ID} | SheetIntegration | ${actorName || 'UnknownActor'} | Render]`;
+        const warningStyle = "color:orange; font-weight:bold;";
+        const errorStyle = "color:red; font-weight:bold;";
+        // const infoStyle = "color:cyan; font-weight:bold;";
+
+        if (!actor || actor.type !== "character") {
+            return;
+        }
+        if (!this.needsManager) {
+            console.error(logPrefixFunc(actor?.name) + ` Exiting: NeedsManager instance is invalid.`, errorStyle);
+            return;
+        }
+        if (!html || html.length === 0) {
             return;
         }
 
-        this.needsManager.loadAllConfigs(); 
-        
+        this.needsManager.loadAllConfigs();
+
         if (!this.needsManager.trackerConfigs || !Array.isArray(this.needsManager.trackerConfigs)) {
-            console.error(logPrefixFunc(actor.name) + ` CRITICAL: trackerConfigs is not a valid array after loadAllConfigs.`, errorStyle, this.needsManager.trackerConfigs);
-            // Attempt a hard fallback if constants are available
-            if (typeof DEFAULT_TRACKER_CONFIGS !== 'undefined' && Array.isArray(DEFAULT_TRACKER_CONFIGS)) {
-                 this.needsManager.trackerConfigs = foundry.utils.deepClone(DEFAULT_TRACKER_CONFIGS).filter(tc => tc.enabled === true);
-                 console.warn(logPrefixFunc(actor.name) + ` Forcibly reset trackerConfigs to default in SheetIntegration.`, warningStyle);
-            } else {
-                console.error(logPrefixFunc(actor.name) + ` DEFAULT_TRACKER_CONFIGS not available for fallback. Cannot render needs display.`, errorStyle);
-                return;
-            }
+            console.error(logPrefixFunc(actor.name) + ` CRITICAL: trackerConfigs not valid after load. Aborting. Value:`, errorStyle, this.needsManager.trackerConfigs);
+            return;
         }
+
+        const enabledTrackers = this.needsManager.trackerConfigs.filter(tc => tc.enabled === true && (tc.displayOnSheet !== false));
         
-        const enabledTrackers = this.needsManager.trackerConfigs.filter(tc => tc.enabled === true);
-        const sheetDisplayElement = html.find(`.survival-needs-display.${MODULE_ID}`);
+        const sheetDisplayElementQuery = `.survival-needs-display.${MODULE_ID}`;
+        let sheetDisplayElement = html.find(sheetDisplayElementQuery);
 
         if (enabledTrackers.length === 0) {
             sheetDisplayElement.remove();
             return;
         }
+        
+        const actorNeedsData = this.needsManager.getActorNeeds(actor);
 
-        const currentNeeds = this.needsManager.getActorNeeds(actor);
-        const templateTrackers = enabledTrackers.map(tracker => ({
-            ...tracker, 
-            currentValue: currentNeeds[tracker.id] ?? tracker.defaultValue ?? 0,
-            flagPath: `${FLAG_PREFIX}.${tracker.id}`,
-            specialActions: tracker.specialActions || [] 
-        }));
+        const templateTrackers = enabledTrackers.map(tracker => {
+            const flagDataForTracker = actorNeedsData[tracker.id];
+           let currentValue;
+            let flagPathForMainInput;
+
+            if (tracker.subProperties && Array.isArray(tracker.subProperties)) {
+                currentValue = flagDataForTracker?.value ?? tracker.defaultValue ?? 0;
+                flagPathForMainInput = `${FLAG_PREFIX}.${tracker.id}.value`;
+            } else {
+                currentValue = flagDataForTracker ?? tracker.defaultValue ?? 0;
+                flagPathForMainInput = `${FLAG_PREFIX}.${tracker.id}`;
+            }
+            
+            const baseTrackerData = {
+                ...tracker,
+                currentValue: currentValue,
+                flagPath: flagPathForMainInput,
+            };
+
+            if (tracker.isDynamicMax && tracker.id === "divineFavor") {
+                baseTrackerData.currentMaxValue = flagDataForTracker?.calculatedMaxValue ?? tracker.defaultMaxValue ?? 3;
+            } else if (tracker.maxValue && !tracker.isDynamicMax) {
+                 baseTrackerData.displayMaxValue = tracker.maxValue;
+            }
+
+            if (tracker.subProperties && Array.isArray(tracker.subProperties)) {
+                baseTrackerData.subProperties = tracker.subProperties.map(subProp => ({
+                    ...subProp,
+                    currentValue: flagDataForTracker?.[subProp.id] ?? subProp.defaultValue ?? 0,
+                    flagPath: `${FLAG_PREFIX}.${tracker.id}.${subProp.id}`
+                }));
+            }
+
+
+            // Calculate weekly increase for Divine Favor
+            if (tracker.id === "divineFavor") {
+                const updateIntervalHours = game.settings.get(MODULE_ID, SETTINGS.UPDATE_INTERVAL_HOURS);
+                if (updateIntervalHours > 0) { // Avoid division by zero if interval is misconfigured
+                    const intervalsPerDay = 24 / updateIntervalHours;
+                    const intervalsPerWeek = intervalsPerDay * 7;
+                    
+                    const shrines = flagDataForTracker?.shrines ?? 
+                                   (tracker.subProperties?.find(sp => sp.id === 'shrines')?.defaultValue ?? 0);
+                    
+                    let totalIncreasePerGameInterval = 0;
+
+                    // Add base increase
+                    if (typeof tracker.baseIncreasePerInterval === 'number') {
+                        totalIncreasePerGameInterval += tracker.baseIncreasePerInterval;
+                    }
+
+                    // Add increase from shrines
+                    const increasePerShrine = typeof tracker.increasePerShrinePerInterval === 'number' ? tracker.increasePerShrinePerInterval : 0;
+                    if (shrines > 0) {
+                        totalIncreasePerGameInterval += (increasePerShrine * shrines);
+                    }
+                    
+                    const weeklyIncrease = totalIncreasePerGameInterval * intervalsPerWeek;
+                    baseTrackerData.calculatedWeeklyIncrease = weeklyIncrease.toFixed(1); 
+                } else {
+                    baseTrackerData.calculatedWeeklyIncrease = "N/A"; // Or 0.0 if interval is 0
+                }
+            }
+
+            return baseTrackerData;
+        });
 
         const templateData = { moduleId: MODULE_ID, actorId: actor.id, trackers: templateTrackers };
-        const content = await renderTemplate(`modules/${MODULE_ID}/templates/needs-display.hbs`, templateData);
+        
+        const templatePath = `modules/${MODULE_ID}/templates/needs-display.hbs`;
+        let content;
+        try {
+            content = await renderTemplate(templatePath, templateData);
+        } catch (err) {
+            console.error(logPrefixFunc(actor.name) + ` ERROR rendering template '${templatePath}':`, errorStyle, err);
+            return;
+        }
 
+        if (!content || content.trim().length === 0) {
+            return;
+        }
+
+        sheetDisplayElement = html.find(sheetDisplayElementQuery);
         if (sheetDisplayElement.length > 0) {
             sheetDisplayElement.replaceWith(content);
         } else {
             let injectionSuccessful = false;
-            const targets = ['aside > div.sidebar[data-tab="sidebar"] ul.saves', 'aside > div.sidebar[data-tab="sidebar"] section.perception', 'aside > div.sidebar[data-tab="sidebar"] header:has(h2:contains("Immunities"))', 'aside > div.sidebar[data-tab="sidebar"]', 'form > aside.sidebar', 'form aside'];
+            const targets = [
+                'aside > div.sidebar[data-tab="sidebar"] ul.saves',
+                'aside > div.sidebar[data-tab="sidebar"] section.perception',
+                'aside > div.sidebar[data-tab="sidebar"] header:has(h2:contains("Immunities"))',
+                'aside > div.sidebar[data-tab="sidebar"]',
+                'form > aside.sidebar',
+                'form aside'
+            ];
+
             for (const selector of targets) {
                 const el = html.find(selector);
                 if (el.length > 0) {
-                    if (selector.includes('ul.saves') || selector.includes('section.perception')) el.after(content);
-                    else if (selector.includes('header:has')) el.before(content);
-                    else el.append(content); 
+                    if (selector.includes('ul.saves') || selector.includes('section.perception')) {
+                        el.after(content);
+                    } else if (selector.includes('header:has')) {
+                        el.before(content);
+                    } else {
+                        el.append(content);
+                    }
                     injectionSuccessful = true;
                     break;
                 }
             }
-            if (!injectionSuccessful) { console.warn(logPrefixFunc(actor.name) + ` Could not inject needs display.`, warningStyle); return; }
+            if (!injectionSuccessful) {
+                console.warn(logPrefixFunc(actor.name) + ` CRITICAL: Could not inject needs display. No target selector matched.`, errorStyle);
+                return;
+            }
         }
-        const newDisplayElement = html.find(`.survival-needs-display.${MODULE_ID}`);
-        this._bindSheetEvents(actor, newDisplayElement, enabledTrackers);
+
+        const newDisplayElement = html.find(sheetDisplayElementQuery);
+        if (newDisplayElement.length > 0) {
+            this._bindSheetEvents(app, actor, newDisplayElement, templateTrackers);
+        } else {
+            console.warn(logPrefixFunc(actor.name) + ` Could not find display element after injection to bind events.`, warningStyle);
+        }
     }
 
-    _bindSheetEvents(actor, displayElement, enabledTrackers) {
-        const logPrefixBase = `%c[${MODULE_ID} | SheetIntegration | ${actor.name} | Events]`;
-        const warningStyle = "color:orange; font-weight:bold;";
-
-        displayElement.find('input[type="number"].tracker-value-input').off('change.survivalNeeds').on('change.survivalNeeds', async event => {
+    _bindSheetEvents(app, actor, displayElement, templateTrackers) {
+        // const logPrefixBase = `%c[${MODULE_ID} | SheetIntegration | ${actor.name} | Events]`;
+        
+        displayElement.find('input[type="number"].tracker-value-input:not(.tracker-subproperty-input)').off('change.survivalNeeds').on('change.survivalNeeds', async event => {
             const input = event.currentTarget;
             const trackerId = $(input).data('trackerId');
-            if (!trackerId) { console.warn(`${logPrefixBase} Input change: No trackerId.`, warningStyle); return; }
-            const newValue = Number(input.value) || 0;
+            if (!trackerId) return;
+            const newValue = input.value;
             await this.needsManager.updateNeedValue(actor, trackerId, newValue);
         });
 
-        for (const tracker of enabledTrackers) {
-            if (tracker.regeneration?.byItem) {
+        displayElement.find('input[type="number"].tracker-subproperty-input').off('change.survivalNeeds').on('change.survivalNeeds', async event => {
+            const input = event.currentTarget;
+            const trackerId = $(input).data('trackerId');
+            const subPropertyId = $(input).data('subpropertyId');
+            if (!trackerId || !subPropertyId) return;
+
+            const newValue = Number(input.value) || 0;
+            const flagPath = `flags.${MODULE_ID}.${trackerId}.${subPropertyId}`;
+            
+            await actor.update({ [flagPath]: newValue });
+
+            const mainTrackerConfig = templateTrackers.find(t => t.id === trackerId);
+            if (mainTrackerConfig?.isDynamicMax || trackerId === "divineFavor") { // Re-render if dynamic max OR if it's divine favor (for weekly increase display)
+                app.render(true);
+            }
+        });
+
+        for (const tracker of templateTrackers) {
+            if (tracker.regeneration?.byItem && tracker.regeneration.itemButtonLabel) {
                 displayElement.find(`.consume-button[data-tracker-id="${tracker.id}"]`).off('click.survivalNeeds').on('click.survivalNeeds', event => {
                     event.preventDefault(); this._handleConsumeItem(actor, tracker);
                 });
             }
             if (tracker.specialActions) {
                 tracker.specialActions.forEach(actionConfig => {
-                    if (!actionConfig || !actionConfig.actionId) { console.warn(`${logPrefixBase} Invalid actionConfig for tracker ${tracker.id}`, warningStyle); return; }
+                    if (!actionConfig || !actionConfig.actionId) return;
                     displayElement.find(`.special-action-button[data-tracker-id="${tracker.id}"][data-action-id="${actionConfig.actionId}"]`)
                         .off('click.survivalNeeds').on('click.survivalNeeds', event => {
                             event.preventDefault(); this._handleSpecialAction(actor, tracker, actionConfig);
@@ -119,18 +223,16 @@ export class SheetIntegration {
         }
     }
 
-  async _handleConsumeItem(actor, trackerConfig) {
-        const logPrefixFunc = (actorName) => `%c[${MODULE_ID} | SheetIntegration | ${actorName || 'UnknownActor'} | ConsumeItem_V1.6_EnsureDialog]`;
-        const detailStyle = "color: olive; font-weight:bold;"; // Make important logs bold
-        const warningStyle = "color:orange; font-weight:bold;";
-        const errorStyle = "color:red; font-weight:bold;";
-        const debugStyle = "color:blue;";
+    async _handleConsumeItem(actor, trackerConfig) {
+        // const logPrefixFunc = (actorName) => `%c[${MODULE_ID} | SheetIntegration | ${actorName || 'UnknownActor'} | ConsumeItem_V1.7_StrictStd]`;
+        // const detailStyle = "color: olive; font-weight:bold;";
+        // const warningStyle = "color:orange; font-weight:bold;";
+        // const errorStyle = "color:red; font-weight:bold;";
+        // const debugStyle = "color:blue;";
 
         if (!actor || !trackerConfig || !trackerConfig.regeneration?.byItem) {
-            console.warn(logPrefixFunc(actor.name) + ` Invalid call. Aborting.`, warningStyle);
             return;
         }
-        console.log(logPrefixFunc(actor.name) + ` Initiating consumption for tracker '${trackerConfig.id}'.`, detailStyle);
 
         const itemRegenConfig = trackerConfig.regeneration;
         const itemFilter = itemRegenConfig.itemFilter || {};
@@ -140,35 +242,36 @@ export class SheetIntegration {
         const suitableItems = actor.items.filter(item => {
             if (!filterTypes.includes(item.type.toLowerCase())) return false;
             const quantity = item.system.quantity;
-            const uses = item.system.uses; 
-            let isUsable = true;
-            if (uses && typeof uses.value === 'number' && typeof uses.max === 'number') { 
-                if (uses.value <= 0) isUsable = false;
-            } else if (item.type === "consumable") { 
-                if (quantity == null || quantity <= 0) isUsable = false;
-            } else if (item.type !== "consumable" && itemFilter.types.includes(item.type.toLowerCase())) {
-                 if (!uses && typeof quantity === 'number' && quantity <= 0) isUsable = false;
-                 else if (uses && typeof uses.value === 'number' && uses.value <=0) isUsable = false;
+            const uses = item.system.uses;
+            const hasDefinedUses = uses && typeof uses.value === 'number' && typeof uses.max === 'number';
+            let isUsable = false;
+            if (hasDefinedUses) {
+                if (uses.value > 0) isUsable = true;
+            } else if (item.type === "consumable") {
+                if (quantity == null || quantity > 0) isUsable = true;
+            } else {
+                if (quantity === null || quantity === undefined || quantity > 0) isUsable = true;
             }
             if (!isUsable) return false;
-            if (nameKeywords.length > 0) { if (!nameKeywords.some(keyword => item.name.toLowerCase().includes(keyword))) return false; }
+            if (nameKeywords.length > 0) {
+                if (!nameKeywords.some(keyword => item.name.toLowerCase().includes(keyword))) return false;
+            }
             return true;
         });
 
         if (suitableItems.length === 0) { ui.notifications.warn(game.i18n.format(`${MODULE_ID}.notifications.noSuitableItem`, { actorName: actor.name, trackerName: trackerConfig.name })); return; }
 
         let optionsHtml = suitableItems.map(item => {
-            // ... (Bulk calculation logic as in the previous complete version - this part was good) ...
             const uses = item.system.uses;
             const hasDefinedUses = uses && typeof uses.value === 'number' && typeof uses.max === 'number';
             let usesString = hasDefinedUses ? ` (${uses.value}/${uses.max} ${uses.per || 'uses'})` : "";
-            let quantityString = (item.type === "consumable" && item.system.quantity != null && !hasDefinedUses) ? ` (x${item.system.quantity})` : "";
+            let quantityString = (!hasDefinedUses && item.system.quantity != null) ? ` (x${item.system.quantity})` : "";
             let itemTotalBulk = 0;
             if (item.bulk?.isLight) { itemTotalBulk = item.bulk.light * 0.1; } 
             else if (item.bulk?.value) { itemTotalBulk = item.bulk.value; } 
             else if (typeof item.system.bulk?.value === 'number') { itemTotalBulk = item.system.bulk.value;} 
             else if (item.system.bulk?.light) { itemTotalBulk = item.system.bulk.light * 0.1;} 
-            else if (item.type === "consumable" && (!item.system.bulk || itemTotalBulk === 0) && !hasDefinedUses) { itemTotalBulk = 0.1; }
+            else if (!hasDefinedUses && (item.system.quantity === null || item.system.quantity === undefined || item.system.quantity > 0)) { itemTotalBulk = 0.1; }
             let effectiveBulkPerUse = itemTotalBulk; 
             if (hasDefinedUses && uses.max > 0) { effectiveBulkPerUse = itemTotalBulk / uses.max; }
             effectiveBulkPerUse = Math.max(0.01, Number(effectiveBulkPerUse.toFixed(3))); 
@@ -193,17 +296,12 @@ export class SheetIntegration {
                         const itemToConsume = actor.items.get(itemId);
                         if (!itemToConsume) { ui.notifications.error(game.i18n.localize(`${MODULE_ID}.notifications.itemNotFound`)); return; }
 
-                        console.log(logPrefixFunc(actor.name) + ` Selected: ${itemToConsume.name}, EffectiveBulk/Use: ${itemEffectiveBulk}, HasUses: ${itemHasUses}`, debugStyle);
-
                         const itemNameLower = itemToConsume.name.toLowerCase();
                         const itemSlug = itemToConsume.system.slug?.toLowerCase() || ""; 
-
-                        // --- VERY STRICT Standard Item Check using SLUGS primarily ---
-                        const standardRationSlugs = ["rations", "ration"]; // KEEP THIS LIST VERY SHORT AND SPECIFIC
-                        const standardWaterskinSlugs = ["waterskin", "canteen"]; // KEEP THIS LIST VERY SHORT
-
+                        const standardRationSlugs = ["rations", "ration"];
+                        const standardWaterskinSlugs = ["waterskin", "canteen"];
                         let isStrictlyStandardItem = false;
-                        let consumptionDataDefaults = {}; // Only used if isStrictlyStandardItem is true
+                        let consumptionDataDefaults = {};
 
                         if (trackerConfig.id === 'hunger' && standardRationSlugs.includes(itemSlug)) {
                             isStrictlyStandardItem = true;
@@ -212,8 +310,6 @@ export class SheetIntegration {
                             isStrictlyStandardItem = true;
                             consumptionDataDefaults = { drinkQuality: "average", isAlcoholic: false, isPotion: false, drinkCaloric: "none" };
                         }
-                        
-                        // Fallback to very exact name match if slug didn't hit (less preferred)
                         if (!isStrictlyStandardItem) {
                             if (trackerConfig.id === 'hunger' && (itemNameLower === "ration" || itemNameLower === "rations")) {
                                 isStrictlyStandardItem = true;
@@ -224,10 +320,7 @@ export class SheetIntegration {
                             }
                         }
                         
-                        console.log(logPrefixFunc(actor.name) + ` Is Strictly Standard Item: ${isStrictlyStandardItem}`, debugStyle);
-
                         if (isStrictlyStandardItem) {
-                            console.log(logPrefixFunc(actor.name) + ` Standard item '${itemToConsume.name}' confirmed. Processing with defaults.`, detailStyle);
                             const consumptionData = {
                                 item: itemToConsume, itemIcon: itemToConsume.img, itemName: itemToConsume.name,
                                 itemBulk: itemEffectiveBulk, originalTrackerId: trackerConfig.id,
@@ -235,12 +328,10 @@ export class SheetIntegration {
                                 isStandard: true, hasUses: itemHasUses,
                                 ...consumptionDataDefaults 
                             };
-                            let consumptionSuccessful = await this._consumeOneUseOrQuantity(actor, itemToConsume, itemHasUses, logPrefixFunc(actor.name));
+                            let consumptionSuccessful = await this._consumeOneUseOrQuantity(actor, itemToConsume, itemHasUses, `%c[${MODULE_ID} | SheetIntegration | ${actor.name} | ConsumeItemCallback]`);
                             if (consumptionSuccessful) await this.needsManager.processDetailedConsumption(actor, consumptionData);
                             else ui.notifications.warn(game.i18n.format("SURVIVAL_NEEDS.notifications.couldNotConsumeUse", {itemName: itemToConsume.name}));
                         } else {
-                            // *** THIS IS THE PATH MOST ITEMS (like "Oil") SHOULD TAKE ***
-                            console.log(logPrefixFunc(actor.name) + ` Item '${itemToConsume.name}' NOT strictly standard. Proceeding to details dialog.`, detailStyle);
                             this._showConsumptionDetailsDialog(actor, trackerConfig, itemToConsume, itemEffectiveBulk, itemRegenConfig, itemHasUses);
                         }
                     }
@@ -250,12 +341,12 @@ export class SheetIntegration {
             default: "next"
         }).render(true);
     }
- async _showConsumptionDetailsDialog(actor, trackerConfig, itemToConsume, itemEffectiveBulk, itemRegenConfig, itemHasUses) {
-        const logPrefixFunc = (actorName) => `%c[${MODULE_ID} | SheetIntegration | ${actorName || 'UnknownActor'} | ConsumptionDetails]`;
+
+    async _showConsumptionDetailsDialog(actor, trackerConfig, itemToConsume, itemEffectiveBulk, itemRegenConfig, itemHasUses) {
         const isFood = trackerConfig.id === 'hunger';
         const isDrink = trackerConfig.id === 'thirst';
         
-        let detailsFormHtml = `<form><p>${game.i18n.format("SURVIVAL_NEEDS.dialogs.consumeDetails.prompt", {itemName: itemToConsume.name, itemBulk: itemEffectiveBulk.toFixed(3) })}</p>`; // Added <form> tag
+        let detailsFormHtml = `<form><p>${game.i18n.format("SURVIVAL_NEEDS.dialogs.consumeDetails.prompt", {itemName: itemToConsume.name, itemBulk: itemEffectiveBulk.toFixed(3) })}</p>`;
 
         if (isFood) {
             detailsFormHtml += `
@@ -304,15 +395,15 @@ export class SheetIntegration {
                 </div>
             `;
         }
-        detailsFormHtml += `</form>`; // Close the <form> tag
+        detailsFormHtml += `</form>`;
 
         new Dialog({
             title: game.i18n.format("SURVIVAL_NEEDS.dialogs.consumeDetails.title", {itemName: itemToConsume.name}),
-            content: detailsFormHtml, // <--- CORRECTED VARIABLE NAME
+            content: detailsFormHtml,
             buttons: {
                 consume: {
                     icon: '<i class="fas fa-check-circle"></i>', label: game.i18n.localize(`${MODULE_ID}.dialogs.consumeItem.consumeButton`),
-                    callback: async (html) => { // html here is the jQuery object for the dialog's content
+                    callback: async (html) => {
                         const consumptionData = {
                             item: itemToConsume, itemIcon: itemToConsume.img, itemName: itemToConsume.name,
                             itemBulk: itemEffectiveBulk, originalTrackerId: trackerConfig.id,
@@ -324,93 +415,167 @@ export class SheetIntegration {
                             isPotion: isDrink ? html.find('input[name="isPotion"]').is(':checked') : false,
                             drinkCaloric: isDrink ? html.find('select[name="drinkCaloric"]').val() : "none",
                         };
-                        let consumptionSuccessful = await this._consumeOneUseOrQuantity(actor, itemToConsume, itemHasUses, logPrefixFunc(actor.name));
+                        let consumptionSuccessful = await this._consumeOneUseOrQuantity(actor, itemToConsume, itemHasUses, `%c[${MODULE_ID} | SheetIntegration | ${actor.name} | ConsumeDetailsCallback]`);
                         if (consumptionSuccessful) await this.needsManager.processDetailedConsumption(actor, consumptionData);
-                        else ui.notifications.error(game.i18n.format("SURVIVAL_NEEDS.notifications.couldNotConsumeUse", {itemName: itemToConsume.name})); // Consider a specific notification key
+                        else ui.notifications.error(game.i18n.format("SURVIVAL_NEEDS.notifications.couldNotConsumeUse", {itemName: itemToConsume.name}));
                     }
                 },
                 cancel: { icon: '<i class="fas fa-times-circle"></i>', label: game.i18n.localize("Cancel") }
             },
             default: "consume",
-            render: (dlgHtml) => { dlgHtml.addClass("survival-needs-consumption-details-dialog");}
+            render: (dlgHtml) => { 
+                dlgHtml.addClass("survival-needs-consumption-details-dialog");
+            }
         }).render(true);
     }
-   async _consumeOneUseOrQuantity(actor, item, itemHasUsesFlag, logPrefixForContext) { // Renamed itemHasUses to itemHasUsesFlag
+
+  async _consumeOneUseOrQuantity(actor, initialItemState, itemHasDefinedUsesSystem, logPrefixForContext) {
+        const itemName = initialItemState.name;
+        const itemID = initialItemState.id;
+        const logCtx = `${logPrefixForContext || '%c[SurvivalNeeds|ConsumeLogic]'} | Item: ${itemName} (ID: ${itemID}, Type: ${initialItemState.type})`;
+        const successStyle = "color:green;";
+        const warnStyle = "color:orange;";
+        const errorStyle = "color:red; font-weight:bold;";
+        const detailStyle = "color:blue;";
+
+        console.log(`${logCtx} | Starting consumption. Initial 'itemHasDefinedUsesSystem' context: ${itemHasDefinedUsesSystem}.`, detailStyle);
+
+        let item = actor.items.get(itemID); // Get the most current version of the item from the actor
+        if (!item) {
+            console.error(`${logCtx} | Item not found on actor before consumption attempt. This should not happen.`, errorStyle);
+            ui.notifications.error(game.i18n.format("SURVIVAL_NEEDS.notifications.itemNotFound", { itemName: itemName }));
+            return false;
+        }
+
+        // --- Path 1: Preferred - Use item.consume() for "consumable" type items ---
+        if (item.type === "consumable") {
+            console.log(`${logCtx} | Item is 'consumable'. Attempting item.consume(). Current uses: ${item.system.uses?.value}, quantity: ${item.system.quantity}. AutoDestroy: ${item.system.uses?.autoDestroy}`, detailStyle);
+            try {
+                // item.consume() is expected to handle uses, quantity for stackable consumables, and autoDestroy.
+                // It typically shows its own chat message.
+                await item.consume(); 
+                
+                // Check if the item still exists after consumption
+                const itemAfterConsume = actor.items.get(itemID);
+                if (!itemAfterConsume) {
+                    console.log(`${logCtx} | item.consume() successful. Item was deleted.`, successStyle);
+                    ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemConsumedAndDestroyed", { itemName: itemName }));
+                    return true;
+                } else {
+                    console.log(`${logCtx} | item.consume() processed. Item still exists. New uses: ${itemAfterConsume.system.uses?.value}, quantity: ${itemAfterConsume.system.quantity}.`, successStyle);
+                    ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemConsumed", { itemName: itemName })); // Generic "consumed" message
+                    return true;
+                }
+            } catch (e) {
+                // item.consume() can throw errors if, for example, the item has 0 uses and 0 quantity.
+                console.warn(`${logCtx} | item.consume() threw an error: ${e.message}. This might be expected if item is already depleted.`, warnStyle, e);
+                // If it failed because it's depleted, report it. Otherwise, could fall through to manual if desired, but PF2e consumables should ideally work with item.consume().
+                const currentItemState = actor.items.get(itemID); // Re-check state
+                if (currentItemState && 
+                    (currentItemState.system.uses?.value <= 0 || typeof currentItemState.system.uses?.value !== 'number') && 
+                    (currentItemState.system.quantity <= 0 || typeof currentItemState.system.quantity !== 'number')) {
+                    ui.notifications.warn(game.i18n.format("SURVIVAL_NEEDS.notifications.itemAlreadyEmpty", { itemName: itemName }));
+                    return false; // Definitely cannot consume
+                }
+                // If it failed for other reasons, it's an unexpected error with item.consume()
+                ui.notifications.error(game.i18n.format("SURVIVAL_NEEDS.notifications.consumeMethodError", { itemName: itemName, error: e.message }));
+                return false; 
+            }
+        }
+
+        // --- Path 2: Manual handling for non-"consumable" types, or as a very last resort ---
+        console.log(`${logCtx} | Item is not 'consumable' (type: ${item.type}) or item.consume() was not applicable. Proceeding with manual logic.`, detailStyle);
+        item = actor.items.get(itemID); // Refresh item state again, just in case
+        if (!item) {
+            console.log(`${logCtx} | Item was unexpectedly deleted before manual logic. Assuming consumption occurred.`, warnStyle);
+            ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemConsumedAndDestroyed", { itemName: itemName }));
+            return true;
+        }
+
         const uses = item.system.uses;
-        const itemName = item.name;
-        const itemID = item.id;
-        const warningStyle = "color:orange; font-weight:bold;";
-        const detailStyle = "color: olive;";
+        const currentQuantity = Number(item.system.quantity); // Ensure quantity is a number
+        const hasActualUsesSystem = uses && typeof uses.value === 'number' && typeof uses.max === 'number';
 
-        // console.log(`${logPrefixForContext} Attempting to consume from '${itemName}'. itemHasUsesFlag: ${itemHasUsesFlag}. Uses obj:`, detailStyle, uses, `Quantity: ${item.system.quantity}`);
+        // Try to consume via "uses" if the item has them and they are > 0
+        if (hasActualUsesSystem && uses.value > 0) {
+            console.log(`${logCtx} | Manual: Decrementing uses. Current: ${uses.value}. AutoDestroy: ${uses.autoDestroy}.`, detailStyle);
+            const newUses = uses.value - 1;
+            try {
+                await item.update({ "system.uses.value": newUses });
+                ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemUseDecremented", { itemName: itemName, newUses: newUses }));
+                
+                const itemAfterUpdate = actor.items.get(itemID); // Get latest state
+                if (!itemAfterUpdate) { // Should not happen if update was successful unless another hook deleted it
+                     console.log(`${logCtx} | Manual: Item deleted during uses update.`, successStyle);
+                     return true;
+                }
 
-        if (itemHasUsesFlag && uses && typeof uses.value === 'number' && uses.max != null) { // Check uses.max for validity too
-            if (uses.value > 0) {
-                const newValue = uses.value - 1;
-                await item.update({ "system.uses.value": newValue });
-                const updatedItem = actor.items.get(itemID); // Re-fetch for accurate data after update
-                if (updatedItem && (updatedItem.system.uses?.value ?? 0) <= 0 && updatedItem.system.autoDestroy) { 
-                    await updatedItem.delete();
-                    ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemEmptyAndDestroyed", {itemName: itemName}));
-                } else if (updatedItem && (updatedItem.system.uses?.value ?? 0) <= 0) {
-                    ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemEmpty", {itemName: itemName}));
+                if (newUses <= 0) {
+                    console.log(`${logCtx} | Manual: Uses are now <= 0. Checking autoDestroy.`, detailStyle);
+                    if (uses.autoDestroy) {
+                        await itemAfterUpdate.delete();
+                        console.log(`${logCtx} | Manual: Item auto-destroyed as uses reached 0.`, successStyle);
+                        ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemEmptyAndDestroyed", { itemName: itemName }));
+                    } else {
+                        console.log(`${logCtx} | Manual: Uses reached 0, but autoDestroy is false. Item remains.`, successStyle);
+                        ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemEmptyNoAutodestroy", { itemName: itemName }));
+                    }
                 }
                 return true;
-            } else {
-                console.warn(`${logPrefixForContext} Item '${itemName}' already has 0 uses. Cannot consume.`, warningStyle);
-                ui.notifications.warn(game.i18n.format("SURVIVAL_NEEDS.notifications.itemAlreadyEmpty", {itemName: itemName}));
+            } catch (e) {
+                console.error(`${logCtx} | Manual: Error updating item uses: ${e.message}`, errorStyle, e);
+                ui.notifications.error(game.i18n.format("SURVIVAL_NEEDS.notifications.generalConsumptionError", {itemName: itemName, error: e.message}));
                 return false;
             }
-        } else if (item.type === "consumable" && !itemHasUsesFlag) { 
-            const qty = item.system.quantity ?? 1;
-            if (qty > 0) { // Only consume if quantity > 0
-                if (qty > 1) { await item.update({"system.quantity": qty - 1}); } 
-                else { await item.delete(); ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemConsumed", {itemName: itemName}));}
+        } 
+        // Else, try to consume via "quantity" if it has quantity > 0
+        else if (typeof currentQuantity === 'number' && currentQuantity > 0) {
+            console.log(`${logCtx} | Manual: Decrementing quantity. Current: ${currentQuantity}.`, detailStyle);
+            const newQuantity = currentQuantity - 1;
+            try {
+                if (newQuantity <= 0) {
+                    await item.delete();
+                    console.log(`${logCtx} | Manual: Quantity reached 0. Item deleted.`, successStyle);
+                    ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemQuantityZeroAndDestroyed", { itemName: itemName }));
+                } else {
+                    await item.update({ "system.quantity": newQuantity });
+                    console.log(`${logCtx} | Manual: Quantity updated to ${newQuantity}.`, successStyle);
+                    ui.notifications.info(game.i18n.format("SURVIVAL_NEEDS.notifications.itemQuantityDecremented", { itemName: itemName, newQuantity: newQuantity }));
+                }
                 return true;
-            } else {
-                 console.warn(`${logPrefixForContext} Consumable '${itemName}' has 0 quantity. Cannot consume.`, warningStyle);
-                 ui.notifications.warn(game.i18n.format("SURVIVAL_NEEDS.notifications.itemAlreadyEmpty", {itemName: itemName}));
-                 return false;
+            } catch (e) {
+                console.error(`${logCtx} | Manual: Error updating/deleting item by quantity: ${e.message}`, errorStyle, e);
+                ui.notifications.error(game.i18n.format("SURVIVAL_NEEDS.notifications.generalConsumptionError", {itemName: itemName, error: e.message}));
+                return false;
             }
-        } else if (!itemHasUsesFlag && item.type !== "consumable") { 
-             console.log(`${logPrefixForContext} Item '${itemName}' (type: ${item.type}) not uses-based or standard consumable. Conceptual use.`, detailStyle);
-             return true; 
         }
-        
-        console.warn(`${logPrefixForContext} Could not determine consumption method for '${itemName}'. Type: ${item.type}, itemHasUsesFlag: ${itemHasUsesFlag}`, warningStyle);
+
+        // If we reach here, the item couldn't be consumed by uses or quantity by manual logic
+        console.warn(`${logCtx} | Manual: Item has no positive uses or quantity to consume. Uses: ${uses?.value}, Quantity: ${currentQuantity}.`, warnStyle);
+        ui.notifications.warn(game.i18n.format("SURVIVAL_NEEDS.notifications.itemNotConsumedNoUsesOrQuantity", { itemName: itemName }));
         return false;
     }
 
-    /**
-     * Handles clicks on special action buttons defined in tracker configurations.
-     */
     async _handleSpecialAction(actor, trackerConfig, actionConfig) {
-        const logPrefix = `%c[${MODULE_ID} | SheetIntegration | ${actor.name} | SpecialAction]`;
-        const detailStyle = "color: olive;";
-        const warningStyle = "color:orange; font-weight:bold;";
-
-        console.log(`${logPrefix} Clicked: Tracker '${trackerConfig.id}', Action '${actionConfig.actionId}'`, detailStyle, actionConfig);
+        // const logPrefix = `%c[${MODULE_ID} | SheetIntegration | ${actor.name} | SpecialAction]`;
+        // const detailStyle = "color: olive;";
+        // const warningStyle = "color:orange; font-weight:bold;";
 
         if (actionConfig.opensChoicesDialog && actionConfig.choices?.length > 0) {
-            // This will handle Boredom, Stress, and now Sleep options
             this._showChoiceDialog(actor, trackerConfig, actionConfig);
         } else if (actionConfig.actionId === "relieve_piss" || actionConfig.actionId === "relieve_poop") {
             await this.needsManager.relieveWaste(actor, trackerConfig.id, actionConfig);
         } else if (actionConfig.actionId === "dry_off") {
             await this.needsManager.dryOff(actor, actionConfig);
         } else {
-            console.warn(`${logPrefix} Unhandled special action ID without choices dialog: ${actionConfig.actionId} for tracker ${trackerConfig.id}`, warningStyle);
             ui.notifications.warn(`Action "${actionConfig.label}" for ${trackerConfig.name} is not yet fully implemented or misconfigured.`);
         }
     }
 
-    /**
-     * Shows a dialog for actions that require a choice (e.g., Boredom, Stress, Sleep options).
-     */
     async _showChoiceDialog(actor, trackerConfig, actionConfig) {
-        const logPrefix = `%c[${MODULE_ID} | SheetIntegration | ${actor.name} | ChoiceDialog]`;
-        const detailStyle = "color: olive;";
-        const warningStyle = "color:orange; font-weight:bold;";
+        // const logPrefix = `%c[${MODULE_ID} | SheetIntegration | ${actor.name} | ChoiceDialog]`;
+        // const detailStyle = "color: olive;";
+        // const warningStyle = "color:orange; font-weight:bold;";
 
         let dialogOptionsHtml = "";
         actionConfig.choices.forEach((choice, index) => {
@@ -458,21 +623,12 @@ export class SheetIntegration {
                         if (selectedChoiceId) {
                             const choiceConfig = actionConfig.choices.find(c => c.id === selectedChoiceId);
                             if (choiceConfig) {
-                                console.log(`${logPrefix} Choice selected: '${choiceConfig.label}' for tracker '${trackerConfig.id}'`, detailStyle, choiceConfig);
-                                
-                                // Route to the correct NeedsManager method based on tracker or choice type
                                 if (trackerConfig.id === "sleep") {
                                     await this.needsManager.handleRestChoice(actor, trackerConfig.id, choiceConfig);
                                 } else if (trackerConfig.id === "boredom" || trackerConfig.id === "stress") {
                                     await this.needsManager.relieveBoredomOrStress(actor, trackerConfig.id, choiceConfig);
-                                } else {
-                                    console.warn(`${logPrefix} Choice dialog was used for an unhandled tracker type: ${trackerConfig.id}`, warningStyle);
                                 }
-                            } else {
-                                 console.warn(`${logPrefix} Selected choice ID '${selectedChoiceId}' not found in config.`, warningStyle);
                             }
-                        } else {
-                             console.warn(`${logPrefix} No choice selected in dialog.`, warningStyle);
                         }
                     }
                 },
