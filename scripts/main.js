@@ -7,7 +7,8 @@ import {
 } from "./constants.js";
 import { NeedsManager } from "./actor-needs.js";
 import { SheetIntegration } from "./sheet-integration.js";
-import { registerSettings, initializeActionHandlers } from "./settings.js"; 
+import { registerSettings, initializeActionHandlers } from "./settings.js";
+import { TERRAIN_TYPES } from "./terrain-data.js";
 
 class SurvivalNeedsModule {
   constructor() {
@@ -15,7 +16,124 @@ class SurvivalNeedsModule {
     this.needsManager = null;
     this.sheetIntegration = null; 
     this._debouncedProcessActorEffects = null;
+    this.lastHoveredHex = null; // For hover detection
     // console.log(`%c[${this.moduleId}] Module class constructed.`, "color: purple; font-weight:bold;");
+  }
+
+  initializeHoverListener() {
+    if (!canvas || !canvas.grid || !canvas.app || !canvas.app.stage) {
+      console.error(`[${this.moduleId}] Canvas, grid, or PIXI stage not ready for hover listener.`);
+      return;
+    }
+
+    canvas.app.stage.interactive = true;
+    // Make sure not to add multiple listeners if this is called again
+    canvas.app.stage.off('mousemove.SurvivalNeedsModule'); // Remove previous listener if any
+
+    canvas.app.stage.on('mousemove.SurvivalNeedsModule', (event) => {
+      if (!event.data || !event.data.global) return;
+      const mousePosition = event.data.global;
+
+      // Check if mouse is within canvas bounds; getGridPositionFromPixels can error otherwise
+      if (mousePosition.x < 0 || mousePosition.x > canvas.dimensions.width ||
+          mousePosition.y < 0 || mousePosition.y > canvas.dimensions.height) {
+        if (this.lastHoveredHex !== null) {
+          this.lastHoveredHex = null;
+          game.tooltip.hide();
+        }
+        return;
+      }
+
+      try {
+        const hexCoords = canvas.grid.getGridPositionFromPixels(mousePosition.x, mousePosition.y);
+        if (!hexCoords || hexCoords.length < 2) {
+          if (this.lastHoveredHex !== null) {
+            this.lastHoveredHex = null;
+            game.tooltip.hide();
+          }
+          return;
+        }
+
+        const currentHexKey = hexCoords.join(',');
+        if (this.lastHoveredHex !== currentHexKey) {
+          this.lastHoveredHex = currentHexKey;
+
+          // Simulate Terrain Type Determination
+          const terrainKeys = Object.keys(TERRAIN_TYPES);
+          if (terrainKeys.length === 0) {
+            game.tooltip.hide();
+            return;
+          }
+          // Ensure hexCoords components are numbers for arithmetic
+          const hc0 = Number(hexCoords[0]) || 0;
+          const hc1 = Number(hexCoords[1]) || 0;
+          const terrainId = terrainKeys[Math.abs(hc0 + hc1) % terrainKeys.length];
+
+          const terrainData = this.getTerrainData(terrainId);
+
+          if (terrainData) {
+            const tooltipHtmlContent = `
+              <div style="max-width: 300px; font-size: 0.9em; color: #333; background-color: #f9f9f9; border: 1px solid #ccc; padding: 8px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <h4 style="margin-top: 0; margin-bottom: 5px; border-bottom: 1px solid #ddd; padding-bottom: 3px; color: #111;">${terrainData.name}</h4>
+                  <p style="margin-bottom: 8px; font-style: italic;">${terrainData.description}</p>
+                  <p style="margin-bottom: 3px;"><strong>Encounters:</strong> ${terrainData.encounterChance}%</p>
+                  <p style="margin-bottom: 0;"><strong>Discovery:</strong> ${terrainData.discoveryChance}%</p>
+              </div>`;
+
+            // Get hex center for tooltip positioning
+            const pixels = canvas.grid.getPixelsFromGridPosition(hc0, hc1); // Use validated hc0, hc1
+            if (!pixels || pixels.length < 2) {
+                 game.tooltip.hide(); return;
+            }
+            const hexCenter = { x: pixels[0] + canvas.grid.w / 2, y: pixels[1] + canvas.grid.h / 2 };
+
+            const targetBounds = {
+                x: hexCenter.x,
+                y: hexCenter.y,
+                width: 1,
+                height: 1
+            };
+            game.tooltip.show(targetBounds, tooltipHtmlContent, { mode: TooltipManager.MODES.HOVER, preferredDirection:"RIGHT" });
+            // console.log(`[${this.moduleId}] Showing tooltip for ${terrainData.name} at hex ${currentHexKey}`);
+          } else {
+            game.tooltip.hide();
+            // console.log(`[${this.moduleId}] No terrain data for ID: ${terrainId} at hex ${currentHexKey}`);
+          }
+        }
+      } catch (error) {
+        // console.warn(`[${this.moduleId}] Error in mousemove processing:`, error.message);
+        if (this.lastHoveredHex !== null) {
+          this.lastHoveredHex = null;
+          game.tooltip.hide();
+        }
+      }
+    });
+    // console.log(`%c[${this.moduleId}] Hex hover listener initialized.`, "color: cyan;");
+  }
+
+  getTerrainData(terrainId) {
+    if (TERRAIN_TYPES.hasOwnProperty(terrainId)) {
+      const terrainObject = TERRAIN_TYPES[terrainId];
+      let localizedDescription = terrainObject.descriptionKey; // Default to key if localization fails
+      try {
+        // Ensure game.i18n is available and localize is a function
+        if (game && game.i18n && typeof game.i18n.localize === 'function') {
+          localizedDescription = game.i18n.localize(terrainObject.descriptionKey);
+        } else {
+          console.warn(`[${this.moduleId}] game.i18n.localize not available. Using descriptionKey as fallback for ${terrainId}.`);
+        }
+      } catch (e) {
+        console.error(`[${this.moduleId}] Error localizing descriptionKey "${terrainObject.descriptionKey}" for terrain ${terrainId}:`, e);
+      }
+
+      return {
+        ...terrainObject,
+        description: localizedDescription
+      };
+    } else {
+      console.error(`[${this.moduleId}] Unknown terrain ID: ${terrainId}`);
+      return null;
+    }
   }
 
   initialize() {
@@ -75,6 +193,11 @@ class SurvivalNeedsModule {
       await this.performInitialActorSetup();
 
       // console.log(`%c[${this.moduleId}] All components initialized and game hooks registered.`, "color: green; font-weight:bold;");
+    });
+
+    Hooks.on("canvasReady", () => {
+      // console.log(`%c[${this.moduleId}] HOOK: canvasReady - Initializing hover listener.`, "color: blue;");
+      this.initializeHoverListener();
     });
   }
 
@@ -261,13 +384,25 @@ class SurvivalNeedsModule {
   }
 }
 
+
+// Ensure the global instance is created and initialized once.
 try {
   if (!window.survivalNeedsGlobalInstance) {
-    window.survivalNeedsGlobalInstance = new SurvivalNeedsModule();
-    window.survivalNeedsGlobalInstance.initialize();
+    const globalInstance = new SurvivalNeedsModule();
+    globalInstance.initialize(); // Calls Hooks.once("init", ...) and Hooks.once("ready", ...)
+    window.survivalNeedsGlobalInstance = globalInstance; // Assign after successful initialization
     // console.log(`%c[${MODULE_ID}] Main module instance created and initialize() called.`, "color: purple; font-weight:bold;");
+  } else {
+    // If the instance exists but maybe canvasReady wasn't hooked correctly due to a reload
+    // This is a bit of a safety net, ideally full reloads handle this cleanly.
+    Hooks.on("canvasReady", () => {
+      if (window.survivalNeedsGlobalInstance && typeof window.survivalNeedsGlobalInstance.initializeHoverListener === 'function') {
+        // console.log(`%c[${MODULE_ID}] HOOK: canvasReady (re-hook) - Initializing hover listener.`, "color: orange;");
+        window.survivalNeedsGlobalInstance.initializeHoverListener();
+      }
+    });
   }
 } catch (error) {
   console.error(`%c[${MODULE_ID}] CRITICAL ERROR during global module instantiation or initial setup:`, "color:red; font-weight:bold;", error);
-  ui.notifications.error(`${MODULE_ID}: Critical error during startup. Module may not function correctly. Check console (F12).`, { permanent: true });
+  ui.notifications.error(`${MODULE_ID}: Critical error during startup. Module may not function correctly. Check console (F12). Error: ${error.message}`, { permanent: true, console: false });
 }

@@ -82,5 +82,151 @@
   "SURVIVAL_NEEDS.chat.notThirstyAnymore": "Character is no longer thirsty.",
   "SURVIVAL_NEEDS.chat.stillThirsty": "Character is still thirsty.",
   "SURVIVAL_NEEDS.notifications.defaultsPopulationFailed": "Survival Needs: Could not find one or more configuration fields to populate.",
-  "SURVIVAL_NEEDS.notifications.defaultsPopulationError": "Survival Needs: Error encountered while trying to populate default configurations."
+  "SURVIVAL_NEEDS.notifications.defaultsPopulationError": "Survival Needs: Error encountered while trying to populate default configurations.",
+  "TERRAIN": {
+    "forest_temperate": {
+      "description": "A typical woodland with a mix of deciduous and coniferous trees, moderate wildlife, and seasonal changes."
+    },
+    "forest_taiga": {
+      "description": "A cold, subarctic forest of coniferous trees like pine, spruce, and larch, often with snowy conditions."
+    },
+    "forest_tropical_rainforest": {
+      "description": "A hot, humid jungle teeming with biodiversity, dense vegetation, and constant rainfall."
+    },
+    "forest_bamboo": {
+      "description": "A dense thicket of fast-growing bamboo stalks, creating a unique and somewhat dim environment."
+    },
+    "forest_mangrove_swamp": {
+      "description": "A coastal wetland forest of salt-tolerant mangrove trees, with tangled roots and brackish water."
+    },
+    "plains_temperate": {
+      "description": "Expansive, open grasslands with fertile soil, moderate rainfall, and grazing animals."
+    },
+    "plains_savannah": {
+      "description": "Tropical grasslands with scattered trees, distinct wet and dry seasons, and herds of large herbivores."
+    },
+    "plains_steppe": {
+      "description": "Vast, semi-arid grassy plains with few trees, characterized by extreme temperature variations."
+    },
+    "plains_farmland": {
+      "description": "Cultivated land used for growing crops or raising livestock, often with irrigation systems and scattered farmsteads."
+    },
+    "hills_rolling": {
+      "description": "Gentle, undulating hills covered in grass or light woodland, offering varied terrain but not extreme heights."
+    },
+    "hills_foothills": {
+      "description": "The transitional zone between plains or lowlands and steeper mountain ranges."
+    },
+    "mountains_alpine": {
+      "description": "High, rugged mountains with snow-capped peaks, glaciers, and sparse, hardy vegetation."
+    },
+    "mountains_volcanic_peaks": {
+      "description": "Mountains formed by volcanic activity, potentially featuring calderas, lava fields, and geothermal vents."
+    },
+    "mountains_rocky_badlands": {
+      "description": "Heavily eroded, arid terrain with steep slopes, pinnacles, and colorful rock formations, difficult to traverse."
+    },
+    "wetlands_freshwater_marsh": {
+      "description": "A low-lying wetland saturated with freshwater, characterized by grasses, reeds, and non-woody plants."
+    },
+    "wetlands_saltwater_marsh": {
+      "description": "A coastal wetland flooded by saltwater tides, supporting salt-tolerant grasses and marine life."
+    },
+    "wetlands_fen": {
+      "description": "A peat-forming wetland fed by mineral-rich groundwater, supporting a variety of sedges and wildflowers."
+    },
+    "wetlands_bog": {
+      "description": "A freshwater, peat-accumulating wetland that is acidic and nutrient-poor, often with sphagnum moss and stunted trees."
+    },
+    "wetlands_quagmire": {
+      "description": "A soft, boggy area of land that gives way underfoot; a treacherous mix of mud and water."
+    },
+    "deserts_sandy": {
+      "description": "Vast expanses of shifting sand dunes, extreme temperatures, and scarce water sources."
+    },
+    "deserts_rocky": {
+      "description": "Arid terrain dominated by exposed bedrock, gravel plains, and sparse, hardy vegetation."
+    },
+    "deserts_cold": {
+      "description": "A barren region with low temperatures and limited precipitation, often at high altitudes or latitudes."
+    },
+    "deserts_oasis": {
+      "description": "A fertile spot in a desert where water is found, supporting vegetation and animal life."
+    },
+    "aquatic_coastline": {
+      "description": "The area where land meets the sea, featuring beaches, cliffs, and tidal zones."
+    },
+    "aquatic_coral_reef": {
+      "description": "Underwater ecosystems built by reef-building corals, teeming with diverse marine life."
+    },
+    "aquatic_open_ocean": {
+      "description": "The vast expanse of the sea far from land, characterized by deep waters and pelagic life."
+    },
+    "aquatic_deep_sea_trench": {
+      "description": "Extremely deep, narrow depressions in the ocean floor, home to unique and often bioluminescent creatures."
+    },
+    "aquatic_river": {
+      "description": "A natural flowing watercourse, usually freshwater, flowing towards an ocean, sea, lake or another river."
+    },
+    "aquatic_lake": {
+      "description": "A large body of relatively still water, surrounded by land."
+    },
+    "aquatic_swamp_water": {
+      "description": "Shallow, slow-moving or stagnant water within a swamp, often murky and filled with submerged vegetation."
+    },
+    "underground_natural_caves": {
+      "description": "Naturally formed subterranean chambers and passages, often dark and damp."
+    },
+    "underground_crystal_caves": {
+      "description": "Caves adorned with large, striking crystal formations."
+    },
+    "underground_lava_tubes": {
+      "description": "Cave-like channels formed by flowing lava, now cooled and empty."
+    },
+    "underground_river": {
+      "description": "A river that flows partially or entirely beneath the ground surface."
+    },
+    "underground_dungeon": {
+      "description": "A network of man-made or ancient underground passages and rooms, often fortified or used as a prison."
+    },
+    "settlements_hamlet": {
+      "description": "A very small settlement, typically with fewer than 50 inhabitants and limited services."
+    },
+    "settlements_village": {
+      "description": "A small community, larger than a hamlet, often with basic services like a shop or inn (50-500 people)."
+    },
+    "settlements_town": {
+      "description": "A larger settlement with a distinct marketplace, multiple services, and a population of several hundred to a few thousand (500-5k people)."
+    },
+    "settlements_city": {
+      "description": "A large and densely populated urban area with complex infrastructure, governance, and diverse economic activities (5k-25k people)."
+    },
+    "settlements_metropolis": {
+      "description": "A major city, often the capital or chief city of a region, with a very large population and significant cultural and economic influence (>25k people)."
+    },
+    "settlements_ruins_ancient": {
+      "description": "The dilapidated remains of a settlement abandoned long ago, often overgrown and weathered by time."
+    },
+    "settlements_ruins_recent": {
+      "description": "The damaged remains of a settlement destroyed or abandoned more recently, possibly still showing signs of recent conflict or disaster."
+    },
+    "settlements_fortification": {
+      "description": "A defensive military structure, such as a fort, castle, or stronghold."
+    },
+    "settlements_encampment": {
+      "description": "A temporary settlement of tents or simple shelters, often used by travelers, armies, or nomads."
+    },
+    "special_feywild_forest": {
+      "description": "An enchanting and unpredictable forest touched by the magic of the Feywild, with vibrant colors and whimsical creatures."
+    },
+    "special_shadowfell_wastes": {
+      "description": "A desolate and gloomy landscape mirroring a location in the material plane, drained of color and hope, infused with the Shadowfell's despair."
+    },
+    "special_elemental_plane_fire": {
+      "description": "A realm of pure fire, with seas of lava, obsidian mountains, and air thick with ash and cinders."
+    },
+    "special_astral_sea_expanse": {
+      "description": "A silvery void filled with swirling motes of starlight, the domain of thought and dream, connecting different planes."
+    }
+  }
 }
